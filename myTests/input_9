@@ -1,0 +1,22 @@
+DECLARE
+a sito(100) n j
+IN
+ n := 100 - 1;
+ a := n;
+ WHILE a > 1 DO
+  sito(a) := 1;
+  a := a - 1;
+ ENDWHILE
+
+ WHILE a < n DO
+  IF sito(a) != 0 THEN
+    j := a + a;
+    WHILE j <= n DO
+      sito(j) := 0;
+      j := j + a;
+    ENDWHILE
+    PUT a;
+   ENDIF
+   a := a + 1;
+ ENDWHILE
+END

@@ -1,0 +1,16 @@
+DECLARE
+a b
+IN
+ a := 7;
+ a := a * 3;
+ PUT a;
+ b := a * 5;
+ PUT b;
+ a := a + 6;
+ a := a - 3;
+ PUT a;
+ b := a * 9;
+ PUT b;
+ b := 3 * b;
+ PUT b;
+END

@@ -1,0 +1,20 @@
+DECLARE
+c e f k
+IN
+ c := 10;
+ e := 9;
+ f := 6;
+ k := 6;
+ IF e <= c THEN PUT e;
+ ENDIF
+ IF c >= f THEN PUT c;
+ ENDIF
+ IF f >= k THEN PUT f;
+ ENDIF
+ IF f <= k THEN PUT k;
+ ENDIF
+ IF c < f THEN PUT c;
+ ENDIF
+ IF e > k THEN PUT e;
+ ENDIF
+END

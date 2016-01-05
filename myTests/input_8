@@ -1,0 +1,18 @@
+DECLARE
+a b(100)
+IN
+ a := 100;
+ WHILE a > 0 DO
+  a := a - 1;
+  b(a) := a + 5;
+ ENDWHILE
+ PUT a;
+ PUT b(55);
+
+ WHILE a < 100 DO
+  b(a) := 6 + a;
+  a := a + 1;
+ ENDWHILE
+ PUT a;
+ PUT b(45);
+END

@@ -1,0 +1,21 @@
+DECLARE
+a(120) b(12) c(18) d e
+IN
+  d := 7;
+  e := 10;
+  a(0) := 2;
+  b(4) := 6;
+  a(2) := a(0) + b(4);
+  c(d) := a(2) * a(0);
+  PUT a(2);
+  PUT c(d);
+  c(e) := 100 - c(d);
+  IF c(e) = 84 THEN
+    c(e) := c(e) - 1;
+    PUT c(e);
+  ENDIF
+  IF c(e) != 84 THEN
+    c(e) := 1 + c(e);
+    PUT c(e);
+  ENDIF
+END

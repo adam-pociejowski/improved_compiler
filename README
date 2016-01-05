@@ -1,0 +1,20 @@
+########################################
+#          Adam Pociejowski            #
+#         nr indeksu: 208792           #
+#          kompilator 2015             #
+########################################
+
+Kompilator składa się z plików: kompilator.y kompilator.l functions.h functions.cpp
+
+Kompilator można skompilować wykorzystując plik Makefile używając komendy: make kompilator
+Kompilator uruchamia się w następujący sposób: ./kompilator < input ,gdzie input jest nazwą 
+pliku w którym znajduję się kod programu zadanym języku.
+Kompilator zwraca plik output.mr w którym znajduje się kod assemblerowy, który wykonuje interpreter.
+
+Kompilator można skompilować i uruchomić uzywając komendy: make all
+
+Opis plików źródłowych:
+kompilator.y - parser kompilatory napisany w bisonie
+kompilator.l - lexer kompilatora
+functions.h - plik nagłowkowy, w którym znajdują się wszystkie deklaracje wszystkich funckji pomocniczych oraz includy
+functions.cpp - plik w którym znajdują się wszystkie funkcje pomocnicze

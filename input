@@ -1,0 +1,7 @@
+DECLARE
+a
+IN
+ a := 10;
+ a := a - 7
+ PUT a;
+END

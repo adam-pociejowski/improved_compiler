@@ -1,0 +1,14 @@
+DECLARE
+a b
+IN
+ a := 1;
+ IF a = 1 THEN
+  a := a + 1;
+  a := 6 * 2;
+  PUT a;
+ ENDIF
+ IF a != b THEN
+  b := 7 * a;
+  PUT b;
+ ENDIF
+END

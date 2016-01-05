@@ -1,0 +1,11 @@
+DECLARE
+a b
+IN
+  a := 1;
+  b := 1 + a;
+  PUT b;
+  b := 12 + b;
+  PUT b;
+  a := a + b;
+  PUT a;
+END
