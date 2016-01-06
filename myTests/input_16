@@ -1,0 +1,13 @@
+[ factorial.imp - obliczanie n! dla n podanego przez uzytkownika ]
+DECLARE
+	fact n k
+IN
+	n := 12;
+	fact := 1;
+	FOR k FROM 1 TO n DO
+		fact := fact * k;
+	ENDFOR
+	PUT fact;
+
+	[ Liczy n! ]
+END

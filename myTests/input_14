@@ -1,0 +1,23 @@
+[ arithm2.imp - operacje arytmetyczne cz. 2 ]
+DECLARE
+	a b i
+IN
+	a := 4;
+	i := 1;
+	WHILE i <= 1000 DO
+		b := 1566607 + 84457;
+		a := b + a;
+  		i := i + 1;
+	ENDWHILE
+	PUT a;
+
+	a := 4;
+	FOR i DOWN FROM 1234567830 TO 1234567801 DO
+		a := a * 1024;
+	ENDFOR
+	PUT a;
+	PUT i;
+
+	a := 19999 * 19997;
+	PUT a;
+END

@@ -1,0 +1,17 @@
+[ cond.imp - instrukcje warunkowe ]
+DECLARE
+	a b
+IN
+	a := 2048;
+	a := 5 + a;
+	b := a - 2047;
+	PUT b;
+	IF a < b THEN
+	ELSE
+		PUT a;
+	ENDIF
+	IF b <= a THEN
+		PUT b;
+	ELSE
+	ENDIF
+END

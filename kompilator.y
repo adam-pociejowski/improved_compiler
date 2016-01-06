@@ -46,8 +46,7 @@ stack<ParserVar> for_stack;
 %token<str> ID
 %token<num> NUM
 %type<var> value
-%type<var> factor;
-%type<var> iterator;
+%type<var> iterator
 %type<var> identifier
 %type<var> expression
 %type<var> condition
@@ -55,7 +54,8 @@ stack<ParserVar> for_stack;
 %%
 
 program
-: DECLARE vdeclarations IN commands END	{ addOutput("HALT"); printOutput(); }
+: DECLARE vdeclarations { organizeVariables(); }
+ IN commands END	{ addOutput("HALT"); printOutput(); }
 ;
 
 
@@ -102,7 +102,7 @@ command
 	addOutput("JUMP "+intToString(st.top())); st.pop();
 	resetAllRegisters(true);
 }
-| FOR iterator FROM value TO factor	{
+| FOR iterator FROM value TO value	{
 	Register reg_1 = prepareRegister($4);
 	storeIterator($2, reg_1);
 	st.push(getK());
@@ -126,7 +126,7 @@ DO commands ENDFOR	{
 	deleteIterator(p1);
 	freeRegister(reg_stack.top(), true); reg_stack.pop();
 }
-| FOR iterator DOWN FROM value TO factor {
+| FOR iterator DOWN FROM value TO value {
 	Register reg_1 = prepareRegister($5);
 	storeIterator($2, reg_1);
 	st.push(getK());
@@ -219,9 +219,9 @@ expression
 	$$.error = checkIfInitialized($1, $3);
 }
 | value MULTI value	{
-	unsigned long long int quickResult = quickMultiplication($1, $3);
-	if (quickResult != -1) $$.stored = quickResult;
-	else {
+//	unsigned long long int quickResult = quickMultiplication($1, $3);
+//	if (quickResult != -1) $$.stored = quickResult;
+//	else {
 		Register reg_1 = prepareRegister($1);
 		Register reg_2 = prepareRegister($3);
 		Register reg_3 = getFreeRegister();
@@ -238,7 +238,7 @@ expression
 		$$.index = -1;
 		$$.stored = reg_3.index;
 		$$.error = checkIfInitialized($1, $3);
-	}
+	//}
 }
 | value DIV value	{
 	if (false) {}
@@ -392,27 +392,10 @@ iterator
 
 value
 : identifier	{ $$ = $1; }
-| NUM	{/*
-	Register reg = getFreeRegister();
-	setValueInRegister($1, reg.index);
-	$$.stored = reg.index;
-	$$.value = $1;
-	$$.name = strdup("");
-	$$.index = -1;*/
+| NUM	{
 	$$.stored = -1;
 	$$.value = $1;
 	$$.name = strdup("");
-	$$.index = -1;
-}
-;
-
-
-factor
-: identifier	{ $$ = $1; }
-| NUM	{
-	$$.value = $1;
-	$$.name = strdup("");
-	$$.stored = storeTempVariable($1);
 	$$.index = -1;
 }
 ;

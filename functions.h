@@ -48,7 +48,6 @@ void setVariable(Variable v);
 void deleteVariable(Variable v);
 void declareVariable(string id, unsigned long long int length);
 void storeVariable(ParserVar p1, ParserVar p2);
-unsigned long long int storeTempVariable(unsigned long long int value);
 
 unsigned long long int addIterator(string id);
 void setIterator(unsigned long long int stored, Register reg);
@@ -79,6 +78,7 @@ void print(string text);
 void setPrintFlag(int _flag);
 void printOutput();
 
+void organizeVariables();
 unsigned long long int quickAddition(ParserVar ps1, ParserVar ps2);
 unsigned long long int quickSubtraction(ParserVar ps1, ParserVar ps2);
 unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2);

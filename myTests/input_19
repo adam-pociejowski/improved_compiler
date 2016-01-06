@@ -1,0 +1,16 @@
+[ loop.imp - zagniezdzone petle ]
+DECLARE
+	a b c
+IN
+	a := 17;
+	b := 10;
+	c := 1;
+	FOR k DOWN FROM 9999 TO 0 DO
+		FOR i FROM 1 TO 3 DO
+			a := a + b;
+			c := c + 1;
+		ENDFOR
+	ENDFOR
+	PUT a;
+	PUT c;
+END

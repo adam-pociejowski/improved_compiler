@@ -14,11 +14,21 @@ unsigned long long int addIterator(string id) {
 	Variable v;
 	v.id = id;
 	v.value = 0;
-	v.stored = memoryIndex++;
+	unsigned long long int index = 12;
+	if (variables.size() > 0) {
+		for (auto i = variables.begin(); i != variables.end(); i++) {
+			if (i->stored < index)	index = i->stored;
+		}
+		if (index == 10) {
+			v.stored = memoryIndex;
+			index = memoryIndex++;
+		}
+		else v.stored = --index;
+	}
 	v.iterator = true;
 	v.length = -1;
 	variables.push_back(v);
-	return memoryIndex - 1;
+	return index;
 }
 
 
@@ -47,38 +57,6 @@ Register getIterator(unsigned long long int stored) {
 }
 
 
-unsigned long long int storeTempVariable(unsigned long long int value) {
-	unsigned long long int index = -1;
-	if (value > 0) {
-		for (auto i = variables.begin(); i != variables.end(); i++) {
-			if (i->value == value && !i->id.compare("")) {
-				index = i->stored;
-				break;
-			}
-		}
-	}
-	if (index == -1) {} //Optimalize (exits that value in memory)
-	else {}
-
-	Register reg = getFreeRegister();
-	Variable v;
-	v.value = value;
-	v.stored = memoryIndex;
-	v.length = -1;
-	v.id = "";
-	variables.push_back(v);
-
-	setValueInRegister(value, reg.index);
-	Register reg2 = getFreeRegister();
-	setValueInRegister(memoryIndex - 10, reg2.index);
-	addOutput("STORE "+intToString(reg.index)+" "+intToString(reg2.index));
-	freeRegister(reg2.index, false);
-	registers[reg.index].positive = true;
-	freeRegister(reg.index, false);
-	return memoryIndex++;
-}
-
-
 bool checkIfInitialized(ParserVar p1, ParserVar p2) {
 	//if ((p1.value == -1 && string(p1.name).compare("")) || (p2.value == -1 && string(p2.name).compare(""))) return true;
 	//else return false;
@@ -88,8 +66,7 @@ bool checkIfInitialized(ParserVar p1, ParserVar p2) {
 
 void storeVariable(ParserVar p1, ParserVar p2) {
 	Variable v = getVariable(p1.name);
-  if (p2.value == -1) v.value = 0;
-	else v.value = p2.value;
+	v.value = 0;
 	setVariable(v);
 	if (p1.stored >= 10) {
 		if (p1.index != -1) {	//Storing in array var(var1)
@@ -141,7 +118,6 @@ Register prepareRegister(ParserVar pv) {
 		freeRegister(reg2.index, true);
 	}
 	else if (pv.stored == -1) {  //Value
-		print("ITS VALUE "+intToString(pv.value));
 		reg = getFreeRegister();
 		setValueInRegister(pv.value, reg.index);
 	}
@@ -208,7 +184,7 @@ Register getFreeRegister() {
 			return registers[i];
 		}
 	}
-	yyerror("All registers used");
+	yyerror("All registers in use");
 }
 
 
@@ -233,9 +209,7 @@ void deleteIterator(ParserVar p) {
 void freeRegister(int reg_index, bool reset) {
 	if (!getRegisterByIndex(reg_index).iterator) {
 		if (reset) addOutput("RESET "+intToString(reg_index));
-		else {
-			if (registers[reg_index].positive == true) addOutput("RESET "+intToString(reg_index));
-		}
+		else if (registers[reg_index].positive == true) addOutput("RESET "+intToString(reg_index));
 		registers[reg_index].positive = false;
 		registers[reg_index].isFree = true;
 		registers[reg_index].id = "";
@@ -314,13 +288,33 @@ unsigned long long int quickSubtraction(ParserVar ps1, ParserVar ps2) {
 
 unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2) {
 	if (ps1.value > 0 || ps2.value > 0) {
-		int values[] = { 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
 		int ps1_value = -1, ps2_value = -1;
-		for (int i = 0; i < sizeof(values)/sizeof(*values); i++) {
-			if (ps1.value == values[i]) ps1_value = i;
-			if (ps2.value == values[i]) ps2_value = i;
+		int i = 0, val;
+		if (ps1.value != -1 && ps1.value != 0) {
+			val = ps1.value;
+			while (val > 1) {
+				if (val % 2 != 0) {	i = -1;		break; }
+				val /= 2;
+				i++;
+			}
+			ps1_value = i;
 		}
-		if (ps1_value > -1 && ps2_value > -1) {
+		else 	ps1_value = -1;
+		print(intToString(ps1.value)+" "+intToString(ps2.value));
+		i = 0;
+		if (ps2.value != -1 && ps2.value != 0) {
+			val = ps2.value;
+			while (val > 1) {
+				if (val % 2 != 0) {	i = -1;	break;	}
+				val /= 2;
+				i++;
+			}
+			ps2_value = i;
+		}
+		else ps2_value = -1;
+		print("VALS "+intToString(ps1_value)+" "+intToString(ps1_value));
+
+		if (ps1_value != -1 && ps2_value != -1) {
 			if (ps1_value < ps2_value) return quickOperationsPrinter("SHL", ps1_value, ps2, ps1);
 			else return quickOperationsPrinter("SHL", ps2_value, ps1, ps2);
 			return -1;
@@ -333,12 +327,40 @@ unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2) {
 
 
 unsigned long long int quickOperationsPrinter(string operation, int number, ParserVar ps1, ParserVar ps2) {
+	print("FASTO");
 	unsigned long long int stored;
 	number++;
 	if (!isRegister(ps1.stored)) stored = prepareRegister(ps1).index;
 	else stored = ps1.stored;
 	for (int i = 0; i < number; i++) addOutput(operation+" "+intToString(stored));
 	return stored;
+}
+
+void organizeVariables() {
+	for (auto i = variables.begin(); i != variables.end(); i++)
+		if (i->length == -1) i->length = 0;
+
+	for (int i = 1; i < variables.size(); i++) {
+		Variable v = variables[i];
+		int j = i - 1;
+		while (j >= 0 && variables[j].length > v.length) {
+			variables[j + 1] = variables[j];
+			variables[j] = v;
+			j--;
+		}
+	}
+	unsigned long long int mem = 11;
+	for (auto i = variables.begin(); i != variables.end(); i++) {
+		if (i->length == 0) {
+			i->length = -1;
+			i->stored = mem++;
+		}
+		else {
+			i->stored = mem;
+			mem += i->length;
+		}
+	}
+	memoryIndex = mem;
 }
 
 /************************************ OPTIMALIZATION END *************************************/
@@ -395,11 +417,11 @@ void declareVariable(string id, unsigned long long length) {
 		print("[declared variable]: "+id+" | stored: "+intToString(memoryIndex));
 		memoryIndex++;
 	}
+	else if (length == 0) yyerror("Declare array "+id+" of size 0!");
 	else if (length > 0) {
 		print("[declared array]: "+id+" | array length: "+intToString(length)+" | stored from: "+intToString(memoryIndex));
 		memoryIndex += length;
 	}
-	else yyerror("Declaring array with 0 length");
 }
 
 
