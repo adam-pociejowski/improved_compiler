@@ -58,9 +58,8 @@ Register getIterator(unsigned long long int stored) {
 
 
 bool checkIfInitialized(ParserVar p1, ParserVar p2) {
-	//if ((p1.value == -1 && string(p1.name).compare("")) || (p2.value == -1 && string(p2.name).compare(""))) return true;
-	//else return false;
-	return false;
+	if ((p1.value == -1 && string(p1.name).compare("")) || (p2.value == -1 && string(p2.name).compare(""))) return true;
+	else return false;
 }
 
 
@@ -121,16 +120,7 @@ Register prepareRegister(ParserVar pv) {
 		reg = getFreeRegister();
 		setValueInRegister(pv.value, reg.index);
 	}
-	else if (isRegister(pv.stored)) { //Value is already in register
-		reg = getRegisterByIndex(pv.stored);
-		if (!reg.iterator) return registers[pv.stored];
-		else {
-			Register reg_2 = getFreeRegister();
-			addOutput("COPY "+intToString(reg_2.index)+" "+intToString(reg.index));
-			setRegister(reg_2, true);
-			return reg_2;
-		}
-	}
+	else if (isRegister(pv.stored)) return registers[pv.stored];	//Value is already in register
 	else if (pv.stored >= 10) {
 		reg = getFreeRegister();
 		reg.id = pv.name;
