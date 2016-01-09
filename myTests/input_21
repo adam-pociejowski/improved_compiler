@@ -1,0 +1,21 @@
+[b po obliczeniach ma wartość 34, t ma wartość 1033, c (wczytywane) ma wartość 55]
+[j ustawiamy jako j := 111111 - 111110;]
+[| 0 1088]
+DECLARE
+b t c j
+IN
+b := 34;
+t := 1033;
+c := 55;
+j := 111111 - 111110;
+FOR i FROM b TO t DO
+  t := t / j;
+  c := c + t;
+  t := i % 1;
+  c := c + t;
+ENDFOR
+PUT b;
+PUT t;
+PUT c;
+PUT j;
+END

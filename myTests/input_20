@@ -1,0 +1,23 @@
+[ nestedloop.imp - bardziej zagniezdzone petle ]
+DECLARE
+	a dummy b c
+IN
+  a := 1234;
+  b := 543;
+  dummy := 1234567890;
+  c := 786;
+	FOR i DOWN FROM 9 TO 0 DO
+		FOR j FROM 0 TO i DO
+			FOR k FROM 0 TO j DO
+				a := a + k;
+				c := k * j;
+				c := c + i;
+				b := b + c;
+			ENDFOR
+		ENDFOR
+	ENDFOR
+	PUT a;
+	PUT b;
+  PUT dummy;
+	PUT c;
+END

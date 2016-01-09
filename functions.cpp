@@ -8,23 +8,37 @@ unsigned long long int memoryIndex = 10;
 unsigned long long int k = 0;
 int error = 0;
 int flag = 1;
+int superVarRegistersAmount = 4;
+int superIteratorRegistersAmount = 1;
 
 
 unsigned long long int addIterator(string id) {
+	unsigned long long int index = 11;
 	Variable v;
 	v.id = id;
 	v.value = 0;
-	unsigned long long int index = 12;
-	if (variables.size() > 0) {
-		for (auto i = variables.begin(); i != variables.end(); i++) {
-			if (i->stored < index)	index = i->stored;
-		}
-		if (index == 10) {
-			v.stored = memoryIndex;
-			index = memoryIndex++;
-		}
-		else v.stored = --index;
+
+	if (superIteratorRegistersAmount > 0) {
+		Register reg = getFreeRegister();
+		reg.iterator = true;
+		setSuperVarInRegister(reg, v);
+		index = reg.index;
+		v.stored = reg.index;
+		superIteratorRegistersAmount--;
 	}
+	else {
+		if (variables.size() > 0) {
+			for (auto i = variables.begin(); i != variables.end(); i++) {
+				if (i->stored < index && !isRegister(i->stored))	index = i->stored;
+			}
+			if (index == 10) {
+				v.stored = memoryIndex;
+				index = memoryIndex++;
+			}
+			else v.stored = --index;
+		}
+	}
+
 	v.iterator = true;
 	v.length = -1;
 	variables.push_back(v);
@@ -64,22 +78,33 @@ bool checkIfInitialized(ParserVar p1, ParserVar p2) {
 
 
 void storeVariable(ParserVar p1, ParserVar p2) {
+//	print("Storing "+intToString(p1.stored)+" "+intToString(p1.index));
 	Variable v = getVariable(p1.name);
 	v.value = 0;
 	setVariable(v);
 	if (p1.stored >= 10) {
 		if (p1.index != -1) {	//Storing in array var(var1)
-			Register reg1 = getFreeRegister();
-			Register reg2 = getFreeRegister();
-			setValueInRegister(p1.index - 10, reg1.index);
-			addOutput("LOAD "+intToString(reg2.index)+" "+intToString(reg1.index));
-			addOutput("RESET "+intToString(reg1.index));
-			setValueInRegister(p1.stored - 10, reg1.index);
-			addOutput("ADD "+intToString(reg1.index)+" "+intToString(reg2.index));
-			freeRegister(reg2.index, true);
-			reg2 = prepareRegister(p2);
-			addOutput("STORE "+intToString(reg2.index)+" "+intToString(reg1.index));
-			freeRegister(reg1.index, true);
+			if (isRegister(p1.index)) { //array var(superVar)
+				Register reg1 = getFreeRegister();
+				setValueInRegister(p1.stored - 10, reg1.index);
+				addOutput("ADD "+intToString(reg1.index)+" "+intToString(p1.index));
+				Register reg2 = prepareRegister(p2);
+				addOutput("STORE "+intToString(reg2.index)+" "+intToString(reg1.index));
+				freeRegister(reg1.index, true);
+			}
+			else {
+				Register reg1 = getFreeRegister();
+				Register reg2 = getFreeRegister();
+				setValueInRegister(p1.index - 10, reg1.index);
+				addOutput("LOAD "+intToString(reg2.index)+" "+intToString(reg1.index));
+				addOutput("RESET "+intToString(reg1.index));
+				setValueInRegister(p1.stored - 10, reg1.index);
+				addOutput("ADD "+intToString(reg1.index)+" "+intToString(reg2.index));
+				freeRegister(reg2.index, true);
+				reg2 = prepareRegister(p2);
+				addOutput("STORE "+intToString(reg2.index)+" "+intToString(reg1.index));
+				freeRegister(reg1.index, true);
+			}
 		}
 		else {
 			Register reg = getFreeRegister();
@@ -87,6 +112,11 @@ void storeVariable(ParserVar p1, ParserVar p2) {
 			addOutput("STORE "+intToString(p2.stored)+" "+intToString(reg.index));
 			freeRegister(reg.index, false);
 		}
+	}
+	else if (v.superVar) { // superVar = register
+		addOutput("COPY "+intToString(v.stored)+" "+intToString(p2.stored));
+	//	deleteSuperVarFromRegister(getRegisterByIndex(v.stored));
+		//setSuperVarInRegister(getRegisterByIndex(p2.stored), v);
 	}
 	else {
 		addOutput("STORE "+intToString(p2.stored)+" "+intToString(p1.stored));
@@ -106,15 +136,25 @@ Register getRegisterByIndex(int reg_index) {
 Register prepareRegister(ParserVar pv) {
 	Register reg;
 	if (pv.index != -1) {  //Array var(var2)
-		reg = getFreeRegister();
-		Register reg2 = getFreeRegister();
-		setValueInRegister(pv.index - 10, reg2.index);
-		addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg2.index));
-		addOutput("RESET "+intToString(reg2.index));
-		setValueInRegister(pv.stored - 10, reg2.index);
-		addOutput("ADD "+intToString(reg2.index)+" "+intToString(reg.index));
-		addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg2.index));
-		freeRegister(reg2.index, true);
+		if (isRegister(pv.index)) { //Array var(superVar)
+			reg = getFreeRegister();
+			Register reg2 = getFreeRegister();
+			setValueInRegister(pv.stored - 10, reg2.index);
+			addOutput("ADD "+intToString(reg2.index)+" "+intToString(pv.index));
+			addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg2.index));
+			freeRegister(reg2.index, true);
+		}
+		else { //Array var(var)
+			reg = getFreeRegister();
+			Register reg2 = getFreeRegister();
+			setValueInRegister(pv.index - 10, reg2.index);
+			addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg2.index));
+			addOutput("RESET "+intToString(reg2.index));
+			setValueInRegister(pv.stored - 10, reg2.index);
+			addOutput("ADD "+intToString(reg2.index)+" "+intToString(reg.index));
+			addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg2.index));
+			freeRegister(reg2.index, true);
+		}
 	}
 	else if (pv.stored == -1) {  //Value
 		reg = getFreeRegister();
@@ -154,8 +194,10 @@ void resetAllRegisters(bool reset) {
 	}
 	else {
 		for (int i = 0; i < 10; i++) {
- 			if (registers[i].positive == true && !registers[i].iterator) {
-				addOutput("RESET "+intToString(i));
+			if (!registers[i].superVar) {
+				if (registers[i].positive == true && !registers[i].iterator) {
+					addOutput("RESET "+intToString(i));
+				}
 			}
  		}
  	}
@@ -179,16 +221,21 @@ Register getFreeRegister() {
 
 
 void storeIterator(ParserVar p, Register reg) {
-	Register reg_2 = getFreeRegister();
-	setValueInRegister(p.stored - 10, reg_2.index);
-	addOutput("STORE "+intToString(reg.index)+" "+intToString(reg_2.index));
-	freeRegister(reg_2.index, true);
-	registers[reg.index].iterator = false;
+	if (p.stored == reg.index) {}
+	else if (isRegister(p.stored))	addOutput("COPY "+intToString(p.stored)+" "+intToString(reg.index));
+	else {
+		Register reg_2 = getFreeRegister();
+		setValueInRegister(p.stored - 10, reg_2.index);
+		addOutput("STORE "+intToString(reg.index)+" "+intToString(reg_2.index));
+		freeRegister(reg_2.index, true);
+		registers[reg.index].iterator = false;
+	}
 	freeRegister(reg.index, true);
 }
 
 
 void deleteIterator(ParserVar p) {
+	if (isRegister(p.stored)) deleteSuperVarFromRegister(getRegisterByIndex(p.stored));
 	Variable v;
 	v.id = p.name;
 	v.iterator = true;
@@ -197,12 +244,14 @@ void deleteIterator(ParserVar p) {
 
 
 void freeRegister(int reg_index, bool reset) {
-	if (!getRegisterByIndex(reg_index).iterator) {
-		if (reset) addOutput("RESET "+intToString(reg_index));
-		else if (registers[reg_index].positive == true) addOutput("RESET "+intToString(reg_index));
-		registers[reg_index].positive = false;
-		registers[reg_index].isFree = true;
-		registers[reg_index].id = "";
+	if (!getRegisterByIndex(reg_index).superVar) {
+		if (!getRegisterByIndex(reg_index).iterator) {
+			if (reset) addOutput("RESET "+intToString(reg_index));
+			else if (registers[reg_index].positive == true) addOutput("RESET "+intToString(reg_index));
+			registers[reg_index].positive = false;
+			registers[reg_index].isFree = true;
+			registers[reg_index].id = "";
+		}
 	}
 }
 
@@ -225,6 +274,10 @@ void initRegisters() {
 /********************************  REGISTERS OPERATIONS END **********************************/
 
 /*********************************** OPTIMALIZATION BEGIN ************************************/
+
+
+
+
 unsigned long long int quickAddition(ParserVar ps1, ParserVar ps2) {
 	Register reg;
 	int max = 10;
@@ -326,9 +379,28 @@ unsigned long long int quickOperationsPrinter(string operation, int number, Pars
 	return stored;
 }
 
+
+Register superVarOperations(ParserVar p1, ParserVar p2) {
+	Register reg;
+	if (isRegister(p1.stored)) {  //We have in at least one on these registers superVar and we don't cant to lost them so we need to copy
+		addOutput("COPY "+intToString(reg.index)+" "+intToString(p1.stored));
+		reg = prepareRegister(p2);
+	}
+	else {
+		addOutput("COPY "+intToString(reg.index)+" "+intToString(p2.stored));
+		reg = prepareRegister(p1);
+	}
+	return reg;
+}
+
+
 void organizeVariables() {
 	for (auto i = variables.begin(); i != variables.end(); i++)
 		if (i->length == -1) i->length = 0;
+
+	int superVarAmount = 0;
+	//Counting how many variables we have
+	for (auto i = variables.begin(); i != variables.end(); i++) if (i->length == 0) superVarAmount++;
 
 	for (int i = 1; i < variables.size(); i++) {
 		Variable v = variables[i];
@@ -339,18 +411,42 @@ void organizeVariables() {
 			j--;
 		}
 	}
+	if (superVarAmount > superVarRegistersAmount) superVarAmount = superVarRegistersAmount;
+	for (int i = 0; i < superVarAmount; i++) setSuperVarInRegister(getFreeRegister(), variables[i]);
+
 	unsigned long long int mem = 11;
 	for (auto i = variables.begin(); i != variables.end(); i++) {
-		if (i->length == 0) {
+		if (i->length == 0 && i->stored >= 10) {
 			i->length = -1;
 			i->stored = mem++;
 		}
-		else {
+		else if (i->length > 0) {
 			i->stored = mem;
 			mem += i->length;
 		}
+		else i->length = -1;
 	}
 	memoryIndex = mem;
+}
+
+
+void setSuperVarInRegister(Register reg, Variable v) {
+	reg.id = v.id;
+	reg.superVar = true;
+	v.stored = reg.index;
+	v.superVar = true;
+	setRegister(reg, true);
+	setVariable(v);
+}
+
+
+void deleteSuperVarFromRegister(Register reg) {
+	if (reg.iterator) superIteratorRegistersAmount++;
+	reg.id = "";
+	reg.superVar = false;
+	reg.iterator = false;
+	setRegister(reg, true);
+	freeRegister(reg.index, true);
 }
 
 /************************************ OPTIMALIZATION END *************************************/
@@ -457,8 +553,8 @@ void printVariables() {
 		for (auto i = variables.begin(); i != variables.end(); i++) {
 			cout<<"i: "<<j<<" | id: "<<i->id<<" | value: "<<i->value<<" | length: "<<i->length<<" | stored: "<<i->stored<<endl;
 		}
-		for (int i = 0; i < 4; i++) {
-			cout<<"i: "<<i<<" | isFree: "<<registers[i].isFree<<" | id: "<<registers[i].id<<" | positive: "<<registers[i].positive<<endl;
+		for (int i = 0; i < 10; i++) {
+			cout<<"i: "<<i<<" | isFree: "<<registers[i].isFree<<" | id: "<<registers[i].id<<" | positive: "<<registers[i].positive<<" | iterator: "<<registers[i].iterator<<" | superVar "<<registers[i].superVar<<endl;
 		}
 	}
 }
