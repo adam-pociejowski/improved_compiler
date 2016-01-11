@@ -3,6 +3,7 @@
 stack<unsigned long long int> st;
 stack<int> reg_to_reset;
 stack<ParserVar> for_stack;
+ParserVar actual;
 %}
 
 %union {
@@ -80,11 +81,24 @@ commands
 
 command
 : identifier ASSIGN expression SEMICOLON {
-	if (!isIterator($1.name)) {
-		if (isRegister($3.stored)) {
-			if (!$3.error) {
-				storeVariable($1, $3);
-			} else yyerror("Trying to access uninitialized variable");
+	actual = $1;
+	if (!isIterator(actual.name)) {
+		if (isRegister($3.stored) || $3.value != -1) {
+			Variable v = getVariable(string(actual.name));
+			if ($3.value == -1) storeVariable(actual, $3);
+			else if (isRegister(actual.stored)) {			//initialize superVar with num
+				addOutput("RESET "+intToString(actual.stored));
+				setValueInRegister($3.value, actual.stored);
+			}
+			else {
+				ParserVar p = $3;
+				p.index = -1;
+				Register reg = prepareRegister($3);
+				p.stored = reg.index;
+				storeVariable(actual, p);
+			}
+			v.isInitialized = true;
+			setVariable(v);
 		} else yyerror("Result of expression isn't stored in register");
 	} else yyerror("Trying change iterator value");
 }
@@ -99,16 +113,13 @@ command
 	reg_to_reset.pop();
 }
 | WHILE condition DO commands ENDWHILE	{
-	setOutput(st.top(), intToString(getK()+1)); st.pop();
+	setOutput(st.top(), intToString(getK() + 1)); st.pop();
 	addOutput("JUMP "+intToString(st.top())); st.pop();
 	freeRegister(reg_to_reset.top(), true);
 	reg_to_reset.pop();
 }
 | FOR iterator FROM value TO value	{
 	Register reg1 = prepareRegister($4);
-	storeIterator($2, reg1);
-	st.push(getK());
-	reg1 = prepareRegister($2);
 	Register reg2;
 	if (isRegister($6.stored)) {  			 //FOR i FROM value TO superVar
 		reg2 = getFreeRegister();
@@ -118,24 +129,38 @@ command
 	setRegister(reg2, true);
 	addOutput("INC "+intToString(reg2.index));
 	addOutput("SUB "+intToString(reg2.index)+" "+intToString(reg1.index));
+	storeIterator($2, reg1);
 	freeRegister(reg1.index, true);
-	for_stack.push($2);
-	st.push(getK());
-	addOutput("JZERO "+intToString(reg2.index)+" ");
+	unsigned long long int loopCounterStored = addLoopCounter(reg2);
 	freeRegister(reg2.index, true);
-	reg_to_reset.push(reg2.index);
+	ParserVar p;
+	p.index = -1;
+	p.stored = loopCounterStored;
+	p.name = strdup("");
+	st.push(getK());
+	printOutput();
+	reg1 = prepareRegister(p);
+	for_stack.push($2);
+	for_stack.push(p);
+	st.push(getK());
+	addOutput("JZERO "+intToString(reg1.index)+" ");
+	freeRegister(reg1.index, true);
+	reg_to_reset.push(reg1.index);
+
 }
 DO commands ENDFOR	{
-	ParserVar p1 = for_stack.top();
+	saveLoopCounter(for_stack.top());
 	for_stack.pop();
-	Register reg = prepareRegister(p1);
+	ParserVar iterator = for_stack.top();
+	for_stack.pop();
+	Register reg = prepareRegister(iterator);				//Increasing value of iterator
 	addOutput("INC "+intToString(reg.index));
-	storeIterator(p1, reg);
+	storeIterator(iterator, reg);
 	setOutput(st.top(), intToString(getK() + 1));
 	st.pop();
 	addOutput("JUMP "+intToString(st.top()));
 	st.pop();
-	deleteIterator(p1);
+	deleteIterator(iterator);
 	freeRegister(reg_to_reset.top(), true);
 	reg_to_reset.pop();
 }
@@ -184,6 +209,9 @@ DO commands ENDFOR	{
 	p.stored = reg.index;
 	p.index = -1;
 	storeVariable($2, p);
+	Variable v = getVariable(string($2.name));
+	v.isInitialized = true;
+	setVariable(v);
 }
 | PUT value SEMICOLON	{
 	Register reg = prepareRegister($2);
@@ -205,20 +233,22 @@ else
 
 expression
 : value	{
-	//TODO small value increment not using new register
-	Register reg = prepareRegister($1);
-	$$.index = -1;
-	$$.stored = reg.index;
-	$$.value = $1.value;
-	if ($1.value == -1) $$.error = true;
+	if ($1.stored == -1) $$ = $1;  //num
+	else {
+		Register reg = prepareRegister($1);
+		$$.index = -1;
+		$$.stored = reg.index;
+		$$.value = -1;
+	}
 }
 |	value ADD value {
 	resetAllRegisters(true);
 	if (isRegister($1.stored) || isRegister($3.stored)) {               //superVar optimalization
-		Register reg = getFreeRegister(), reg2;
+		Register reg, reg2;
 		int changedIndex = -1;
 
 		if (isRegister($1.stored) && isRegister($3.stored)) {   					//superVar + superVar
+			reg = getFreeRegister();
 			addOutput("COPY "+intToString(reg.index)+" "+intToString($3.stored));
 			reg2 = prepareRegister($1);
 		}
@@ -254,7 +284,7 @@ expression
 		}
 	}
 	$$.index = -1;
-	$$.error = checkIfInitialized($1, $3);
+	$$.value = -1;
 }
 | value MINUS value	{
 	resetAllRegisters(true);
@@ -281,7 +311,7 @@ expression
 		}
 	}
 	$$.index = -1;
-	$$.error = checkIfInitialized($1, $3);
+	$$.value = -1;
 }
 | value MULTI value	{
 	resetAllRegisters(true);
@@ -315,7 +345,7 @@ expression
 		freeRegister(reg1.index, true);
 		$$.index = -1;
 		$$.stored = reg3.index;
-		$$.error = checkIfInitialized($1, $3);
+		$$.value = -1;
 	//}
 }
 | value DIV value	{
@@ -362,7 +392,7 @@ expression
 	freeRegister(reg4.index, true);
 	$$.stored = reg5.index;
 	$$.index = -1;
-	$$.error = checkIfInitialized($1, $3);
+	$$.value = -1;
 }
 | value MODULO value	{
 	resetAllRegisters(true);
@@ -406,7 +436,7 @@ expression
 	freeRegister(reg2.index, true);
 	$$.index = -1;
 	$$.stored = reg1.index;
-	$$.error = checkIfInitialized($1, $3);
+	$$.value = -1;
 }
 ;
 
@@ -454,7 +484,6 @@ condition
 	addOutput("JUMP ");
 	setRegister(reg3, true);
 	reg_to_reset.push(reg3.index);
-	$$.error = checkIfInitialized($1, $3);
 }
 | value DIFFERENT value	{
 	resetAllRegisters(true);
@@ -497,7 +526,6 @@ condition
 	addOutput("JZERO "+intToString(reg3.index)+" ");
 	setRegister(reg3, true);
 	reg_to_reset.push(reg3.index);
-	$$.error = checkIfInitialized($1, $3);
 }
 | value LESS value	{
 	resetAllRegisters(true);
@@ -514,7 +542,6 @@ condition
 	addOutput("JZERO "+intToString(reg2.index)+" ");
 	setRegister(reg2, true);
 	reg_to_reset.push(reg2.index);
-	$$.error = checkIfInitialized($1, $3);
 }
 | value MORE value	{
 	resetAllRegisters(true);
@@ -531,7 +558,6 @@ condition
 	addOutput("JZERO "+intToString(reg2.index)+" ");
 	setRegister(reg2, true);
 	reg_to_reset.push(reg2.index);
-	$$.error = checkIfInitialized($1, $3);
 }
 | value LESS_OR_EQUAL value	{
 	resetAllRegisters(true);
@@ -549,7 +575,6 @@ condition
 	addOutput("JZERO "+intToString(reg2.index)+" ");
 	setRegister(reg2, true);
 	reg_to_reset.push(reg2.index);
-	$$.error = checkIfInitialized($1, $3);
 }
 | value MORE_OR_EQUAL value	{
 	resetAllRegisters(true);
@@ -567,7 +592,6 @@ condition
 	addOutput("JZERO "+intToString(reg2.index)+" ");
 	setRegister(reg2, true);
 	reg_to_reset.push(reg2.index);
-	$$.error = checkIfInitialized($1, $3);
 }
 ;
 
@@ -583,7 +607,11 @@ iterator
 
 
 value
-: identifier	{ $$ = $1; }
+: identifier	{
+	Variable v = getVariable(string($1.name));
+	if (v.isInitialized || v.length != -1 || v.iterator) 	$$ = $1;
+	else yyerror("Variable "+string($1.name)+" is not initialized!");
+}
 | NUM	{
 	$$.stored = -1;
 	$$.value = $1;

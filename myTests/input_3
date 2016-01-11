@@ -2,6 +2,7 @@ DECLARE
 a b
 IN
  a := 1;
+ b := 0;
  IF a = 1 THEN
   a := a + 1;
   a := 6 * 2;

@@ -8,12 +8,39 @@ unsigned long long int memoryIndex = 10;
 unsigned long long int k = 0;
 int error = 0;
 int flag = 1;
-int superVarRegistersAmount = 4;
-int superIteratorRegistersAmount = 1;
+
+/** OPTIMALIZATION OPTIONS **/
+int superVarRegistersAmount = 5; 				 //Max amount of registers using to keep variables
+int superIteratorRegistersAmount = 0;    //Min amount of registers using to keep iterators
+int memoryStart = 10;   								 //10 is first adress of memory (0)
+
+
+
+void saveLoopCounter(ParserVar p) {
+	print(intToString(p.stored));
+	printVariables();
+	Register reg = getFreeRegister();
+	Register reg2 = getFreeRegister();
+	setValueInRegister(p.stored - 10, reg.index);
+	addOutput("LOAD "+intToString(reg2.index)+" "+intToString(reg.index));
+	addOutput("DEC "+intToString(reg2.index));
+	addOutput("STORE "+intToString(reg2.index)+" "+intToString(reg.index));
+	freeRegister(reg.index, true);
+	freeRegister(reg2.index, true);
+}
+
+
+unsigned long long int addLoopCounter(Register reg) {
+	Register reg2 = getFreeRegister();
+	setValueInRegister(memoryIndex - 10, reg2.index);
+	addOutput("STORE "+intToString(reg.index)+" "+intToString(reg2.index));
+	freeRegister(reg2.index, true);
+	return memoryIndex++;
+}
 
 
 unsigned long long int addIterator(string id) {
-	unsigned long long int index = 11;
+	unsigned long long int index = memoryStart;
 	Variable v;
 	v.id = id;
 	v.value = 0;
@@ -78,7 +105,6 @@ bool checkIfInitialized(ParserVar p1, ParserVar p2) {
 
 
 void storeVariable(ParserVar p1, ParserVar p2) {
-//	print("Storing "+intToString(p1.stored)+" "+intToString(p1.index));
 	Variable v = getVariable(p1.name);
 	v.value = 0;
 	setVariable(v);
@@ -412,9 +438,15 @@ void organizeVariables() {
 		}
 	}
 	if (superVarAmount > superVarRegistersAmount) superVarAmount = superVarRegistersAmount;
-	for (int i = 0; i < superVarAmount; i++) setSuperVarInRegister(getFreeRegister(), variables[i]);
+	else if (superVarAmount < superVarRegistersAmount) superIteratorRegistersAmount += superVarRegistersAmount - superVarAmount;
+	for (int i = 0; i < superVarAmount; i++) {
+		registers[i].initialized = true;
+		registers[i].positive = false;
+		registers[i].isFree = false;
+		setSuperVarInRegister(registers[i], variables[i]);
+	}
 
-	unsigned long long int mem = 11;
+	unsigned long long int mem = memoryStart;
 	for (auto i = variables.begin(); i != variables.end(); i++) {
 		if (i->length == 0 && i->stored >= 10) {
 			i->length = -1;

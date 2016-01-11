@@ -30,6 +30,7 @@ struct Variable {
 	string id;
 	bool iterator = false;
 	bool superVar = false;
+	bool isInitialized = false;
 };
 
 typedef struct {
@@ -37,7 +38,6 @@ typedef struct {
 	unsigned long long int stored;
 	unsigned long long int index;
 	char* name;
-	bool error;
 } ParserVar;
 
 /* Bison & Lex functions */
@@ -61,6 +61,8 @@ Register getIterator(unsigned long long int stored);
 bool isIterator(string id);
 void storeIterator(ParserVar p, Register reg);
 void deleteIterator(ParserVar p);
+unsigned long long int addLoopCounter(Register reg);
+void saveLoopCounter(ParserVar p);
 
 /* Register functions */
 int setValueInRegister(unsigned long long int value, unsigned long long int reg_index);
