@@ -67,7 +67,7 @@ void saveLoopCounter(ParserVar p);
 /* Register functions */
 int setValueInRegister(unsigned long long int value, unsigned long long int reg_index);
 void initRegisters();
-Register getFreeRegister();
+Register getFreeRegister(bool initReset);
 Register getRegisterByIndex(int reg_index);
 Register prepareRegister(ParserVar pv);
 bool isRegister(unsigned long long int stored);
@@ -90,7 +90,9 @@ void organizeVariables();
 unsigned long long int quickAddition(ParserVar ps1, ParserVar ps2);
 unsigned long long int quickSubtraction(ParserVar ps1, ParserVar ps2);
 unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2);
+unsigned long long int quickDivision(ParserVar ps1, ParserVar ps2);
 unsigned long long int quickOperationsPrinter(string operation, int number, ParserVar ps1, ParserVar ps2);
+int getLog(unsigned long long int value);
 Register superVarOperations(ParserVar p1, ParserVar p2);
 void setSuperVarInRegister(Register reg, Variable v);
 void deleteSuperVarFromRegister(Register reg);

@@ -21,8 +21,8 @@ void saveLoopCounter(ParserVar p) {
 	printVariables();
 	if (isRegister(p.stored))	addOutput("DEC "+intToString(p.stored));
 	else {
-		Register reg = getFreeRegister();
-		Register reg2 = getFreeRegister();
+		Register reg = getFreeRegister(true);
+		Register reg2 = getFreeRegister(true);
 		setValueInRegister(p.stored - 10, reg.index);
 		addOutput("LOAD "+intToString(reg2.index)+" "+intToString(reg.index));
 		addOutput("DEC "+intToString(reg2.index));
@@ -41,7 +41,7 @@ unsigned long long int addLoopCounter(Register reg) {
 		return reg.index;
 	}
 	else {
-		Register reg2 = getFreeRegister();
+		Register reg2 = getFreeRegister(true);
 		setValueInRegister(memoryIndex - 10, reg2.index);
 		addOutput("STORE "+intToString(reg.index)+" "+intToString(reg2.index));
 		freeRegister(reg2.index, true);
@@ -57,7 +57,7 @@ unsigned long long int addIterator(string id) {
 	v.value = 0;
 
 	if (superIteratorRegistersAmount > 0) {
-		Register reg = getFreeRegister();
+		Register reg = getFreeRegister(true);
 		reg.iterator = true;
 		setSuperVarInRegister(reg, v);
 		index = reg.index;
@@ -93,7 +93,7 @@ bool isIterator(string id) {
 
 
 void setIterator(unsigned long long int stored, Register reg) {
-	Register reg_2 = getFreeRegister();
+	Register reg_2 = getFreeRegister(true);
 	setValueInRegister(stored - 10, reg_2.index);
 	addOutput("STORE "+intToString(reg.index)+" "+intToString(reg_2.index));
 	freeRegister(reg_2.index, true);
@@ -101,8 +101,8 @@ void setIterator(unsigned long long int stored, Register reg) {
 
 
 Register getIterator(unsigned long long int stored) {
-	Register reg = getFreeRegister();
-	Register reg_2 = getFreeRegister();
+	Register reg = getFreeRegister(true);
+	Register reg_2 = getFreeRegister(true);
 	setValueInRegister(stored - 10, reg.index);
 	addOutput("LOAD "+intToString(reg_2.index)+" "+intToString(reg.index));
 	return reg_2;
@@ -116,7 +116,7 @@ void storeVariable(ParserVar p1, ParserVar p2) {
 	if (p1.stored >= 10) {
 		if (p1.index != -1) {	//Storing in array var(var1)
 			if (isRegister(p1.index)) { //array var(superVar)
-				Register reg1 = getFreeRegister();
+				Register reg1 = getFreeRegister(true);
 				setValueInRegister(p1.stored - 10, reg1.index);
 				addOutput("ADD "+intToString(reg1.index)+" "+intToString(p1.index));
 				Register reg2 = prepareRegister(p2);
@@ -124,8 +124,8 @@ void storeVariable(ParserVar p1, ParserVar p2) {
 				freeRegister(reg1.index, true);
 			}
 			else {
-				Register reg1 = getFreeRegister();
-				Register reg2 = getFreeRegister();
+				Register reg1 = getFreeRegister(true);
+				Register reg2 = getFreeRegister(true);
 				setValueInRegister(p1.index - 10, reg1.index);
 				addOutput("LOAD "+intToString(reg2.index)+" "+intToString(reg1.index));
 				addOutput("RESET "+intToString(reg1.index));
@@ -138,17 +138,13 @@ void storeVariable(ParserVar p1, ParserVar p2) {
 			}
 		}
 		else {
-			Register reg = getFreeRegister();
+			Register reg = getFreeRegister(true);
 			setValueInRegister(p1.stored - 10, reg.index);
 			addOutput("STORE "+intToString(p2.stored)+" "+intToString(reg.index));
 			freeRegister(reg.index, false);
 		}
 	}
-	else if (v.superVar) { // superVar = register
-		addOutput("COPY "+intToString(v.stored)+" "+intToString(p2.stored));
-	//	deleteSuperVarFromRegister(getRegisterByIndex(v.stored));
-		//setSuperVarInRegister(getRegisterByIndex(p2.stored), v);
-	}
+	else if (v.superVar) addOutput("COPY "+intToString(v.stored)+" "+intToString(p2.stored)); // superVar = register
 	else {
 		addOutput("STORE "+intToString(p2.stored)+" "+intToString(p1.stored));
 		registers[p1.stored].positive = true;
@@ -168,16 +164,16 @@ Register prepareRegister(ParserVar pv) {
 	Register reg;
 	if (pv.index != -1) {  //Array var(var2)
 		if (isRegister(pv.index)) { //Array var(superVar)
-			reg = getFreeRegister();
-			Register reg2 = getFreeRegister();
+			reg = getFreeRegister(true);
+			Register reg2 = getFreeRegister(true);
 			setValueInRegister(pv.stored - 10, reg2.index);
 			addOutput("ADD "+intToString(reg2.index)+" "+intToString(pv.index));
 			addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg2.index));
 			freeRegister(reg2.index, true);
 		}
 		else { //Array var(var)
-			reg = getFreeRegister();
-			Register reg2 = getFreeRegister();
+			reg = getFreeRegister(true);
+			Register reg2 = getFreeRegister(true);
 			setValueInRegister(pv.index - 10, reg2.index);
 			addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg2.index));
 			addOutput("RESET "+intToString(reg2.index));
@@ -188,14 +184,14 @@ Register prepareRegister(ParserVar pv) {
 		}
 	}
 	else if (pv.stored == -1) {  //Value
-		reg = getFreeRegister();
+		reg = getFreeRegister(true);
 		setValueInRegister(pv.value, reg.index);
 	}
 	else if (isRegister(pv.stored)) return registers[pv.stored];	//Value is already in register
 	else if (pv.stored >= 10) {
-		reg = getFreeRegister();
+		reg = getFreeRegister(true);
 		reg.id = pv.name;
-		Register reg_2 = getFreeRegister();		//Register where stored is memory adress
+		Register reg_2 = getFreeRegister(true);		//Register where stored is memory adress
 		setValueInRegister(pv.stored - 10, reg_2.index);
 		addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg_2.index));
 		freeRegister(reg_2.index, false);
@@ -235,11 +231,11 @@ void resetAllRegisters(bool reset) {
 }
 
 
-Register getFreeRegister() {
+Register getFreeRegister(bool initReset) {
 	for (int i = 0; i < 10; i++) {
 		if (registers[i].isFree) {
 			if (!registers[i].initialized || registers[i].positive) {
-				addOutput("RESET "+intToString(i));
+				if (initReset) addOutput("RESET "+intToString(i));
 				registers[i].initialized = true;
 				registers[i].positive = false;
 			}
@@ -255,7 +251,7 @@ void storeIterator(ParserVar p, Register reg) {
 	if (p.stored == reg.index) {}
 	else if (isRegister(p.stored))	addOutput("COPY "+intToString(p.stored)+" "+intToString(reg.index));
 	else {
-		Register reg_2 = getFreeRegister();
+		Register reg_2 = getFreeRegister(true);
 		setValueInRegister(p.stored - 10, reg_2.index);
 		addOutput("STORE "+intToString(reg.index)+" "+intToString(reg_2.index));
 		freeRegister(reg_2.index, true);
@@ -334,7 +330,7 @@ unsigned long long int quickAddition(ParserVar ps1, ParserVar ps2) {
 		addOutput("SHL "+intToString(reg.index));
 	}
 	else if (ps1.stored == ps2.stored && ps1.stored == -1) {  //Situation 3 + 4
-		reg = getFreeRegister();
+		reg = getFreeRegister(true);
 		setValueInRegister(ps1.value + ps2.value, reg.index);
 	}
 	else if (ps2.stored == -1 && (ps2.value != -1 && ps2.value < max)) { //Situation a + value less than 10
@@ -355,11 +351,11 @@ unsigned long long int quickSubtraction(ParserVar ps1, ParserVar ps2) {
 	Register reg;
 	int max = 10;
 	if ((ps1.stored == ps2.stored && ps1.index == ps2.index) && ps1.stored != -1) {  //Situation a - a;
-		reg = getFreeRegister();
+		reg = getFreeRegister(true);
 		return reg.index;
 	}
 	else if ((ps1.stored == -1 && ps2.stored == -1) && (ps1.value != -1 && ps2.value != -1)) {  //Situation 6 - 3
-		reg = getFreeRegister();
+		reg = getFreeRegister(true);
 		if (ps1.value <= ps2.value) return reg.index;
 		setValueInRegister(ps1.value - ps2.value, reg.index);
 	}
@@ -380,30 +376,8 @@ unsigned long long int quickSubtraction(ParserVar ps1, ParserVar ps2) {
 unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2) {
 	if (ps1.value > 0 || ps2.value > 0) {
 		int ps1_value = -1, ps2_value = -1;
-		int i = 0, val;
-		if (ps1.value != -1 && ps1.value != 0) {
-			val = ps1.value;
-			while (val > 1) {
-				if (val % 2 != 0) {	i = -1;		break; }
-				val /= 2;
-				i++;
-			}
-			ps1_value = i;
-		}
-		else 	ps1_value = -1;
-		print(intToString(ps1.value)+" "+intToString(ps2.value));
-		i = 0;
-		if (ps2.value != -1 && ps2.value != 0) {
-			val = ps2.value;
-			while (val > 1) {
-				if (val % 2 != 0) {	i = -1;	break;	}
-				val /= 2;
-				i++;
-			}
-			ps2_value = i;
-		}
-		else ps2_value = -1;
-		print("VALS "+intToString(ps1_value)+" "+intToString(ps1_value));
+		ps1_value = getLog(ps1.value);
+		ps2_value = getLog(ps2.value);
 
 		if (ps1_value != -1 && ps2_value != -1) {
 			if (ps1_value < ps2_value) return quickOperationsPrinter("SHL", ps1_value, ps2, ps1);
@@ -417,14 +391,52 @@ unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2) {
 }
 
 
+unsigned long long int quickDivision(ParserVar ps1, ParserVar ps2) {
+	if (ps1.value > 0 || ps2.value > 0) {
+		int ps1_value = -1, ps2_value = -1;
+		ps1_value = getLog(ps1.value);
+		ps2_value = getLog(ps2.value);
+
+		if (ps1_value != -1 && ps2_value != -1) {
+			if (ps1_value < ps2_value) return quickOperationsPrinter("SHR", ps1_value, ps2, ps1);
+			else return quickOperationsPrinter("SHR", ps2_value, ps1, ps2);
+			return -1;
+		}
+		else if (ps1_value > -1) return quickOperationsPrinter("SHR", ps1_value, ps2, ps1);
+		else if (ps2_value > -1) return quickOperationsPrinter("SHR", ps2_value, ps1, ps2);
+	}
+	return -1;
+}
+
+
 unsigned long long int quickOperationsPrinter(string operation, int number, ParserVar ps1, ParserVar ps2) {
-	print("FASTO");
 	unsigned long long int stored;
-	number++;
 	if (!isRegister(ps1.stored)) stored = prepareRegister(ps1).index;
-	else stored = ps1.stored;
+	else {
+		Register reg = getFreeRegister(false);
+		setRegister(reg, true);
+		addOutput("COPY "+intToString(reg.index)+" "+intToString(ps1.stored));
+		stored = reg.index;
+	}
 	for (int i = 0; i < number; i++) addOutput(operation+" "+intToString(stored));
 	return stored;
+}
+
+
+int getLog(unsigned long long int value) {
+	int i = 0;
+	if (value != -1 && value != 0) {
+		while (value > 1) {
+			if (value % 2 != 0) {
+				i = -1;
+				break;
+			}
+			value /= 2;
+			i++;
+		}
+		return i;
+	}
+	else return -1;
 }
 
 

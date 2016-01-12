@@ -102,6 +102,7 @@ command
 		} else yyerror("Result of expression isn't stored in register");
 	} else yyerror("Trying change iterator value");
 }
+
 | IF condition THEN commands ENDIF	{
 	setOutput(st.top(), intToString(getK())); st.pop(); st.pop();
 	freeRegister(reg_to_reset.top(), true);
@@ -121,7 +122,7 @@ command
 | FOR iterator FROM value TO value	{
 	Register reg1 = prepareRegister($4), reg2;
 	if (isRegister($6.stored)) {  			 //FOR i FROM value TO superVar
-		reg2 = getFreeRegister();
+		reg2 = getFreeRegister(true);
 		addOutput("COPY "+intToString(reg2.index)+" "+intToString($6.stored));
 	}
 	else reg2 = prepareRegister($6);
@@ -164,11 +165,11 @@ DO commands ENDFOR	{
 | FOR iterator DOWN FROM value TO value {
 	Register reg1 = prepareRegister($7), reg2;
 	if (isRegister($5.stored)) {
-		reg2 = getFreeRegister();
+		reg2 = getFreeRegister(true);
 		addOutput("COPY "+intToString(reg2.index)+" "+intToString($5.stored));
 	}
 	else reg2 = prepareRegister($5);
-	Register reg3 = getFreeRegister();
+	Register reg3 = getFreeRegister(true);
 	setRegister(reg1, true);
 	setRegister(reg2, true);
 	setRegister(reg3, true);
@@ -210,12 +211,17 @@ DO commands ENDFOR	{
 }
 | GET identifier SEMICOLON	{
 	ParserVar p;
-	Register reg = getFreeRegister();
-	addOutput("READ "+intToString(reg.index));
-	p.stored = reg.index;
-	p.index = -1;
-	storeVariable($2, p);
 	Variable v = getVariable(string($2.name));
+	if (isRegister(v.stored)) {
+		addOutput("READ "+intToString(v.stored));
+	}
+	else {
+		Register reg = getFreeRegister(false);
+		addOutput("READ "+intToString(reg.index));
+		p.stored = reg.index;
+		p.index = -1;
+		storeVariable($2, p);
+	}
 	v.isInitialized = true;
 	setVariable(v);
 }
@@ -239,7 +245,7 @@ else
 
 expression
 : value	{
-	if ($1.stored == -1) $$ = $1;  //num
+	if ($1.stored == -1) $$ = $1;   //num
 	else {
 		Register reg = prepareRegister($1);
 		$$.index = -1;
@@ -254,7 +260,7 @@ expression
 		int changedIndex = -1;
 
 		if (isRegister($1.stored) && isRegister($3.stored)) {   					//superVar + superVar
-			reg = getFreeRegister();
+			reg = getFreeRegister(true);
 			addOutput("COPY "+intToString(reg.index)+" "+intToString($3.stored));
 			reg2 = prepareRegister($1);
 		}
@@ -297,7 +303,7 @@ expression
 	if (isRegister($1.stored) || isRegister($3.stored)) {  												//superVar optimalization
 		Register reg, reg2 = prepareRegister($3);
 		if (isRegister($1.stored)) {																								//superVar - something
-			reg = getFreeRegister();
+			reg = getFreeRegister(true);
 			addOutput("COPY "+intToString(reg.index)+" "+intToString($1.stored));
 		}
 		else reg = prepareRegister($1);																							//something - superVar
@@ -321,20 +327,20 @@ expression
 }
 | value MULTI value	{
 	resetAllRegisters(true);
-//	unsigned long long int quickResult = quickMultiplication($1, $3);
-//	if (quickResult != -1) $$.stored = quickResult;
-//	else {
-		Register reg1, reg2, reg3 = getFreeRegister();
+	unsigned long long int quickResult = quickMultiplication($1, $3);
+	if (quickResult != -1) $$.stored = quickResult;
+	else {
+		Register reg1, reg2, reg3 = getFreeRegister(true);
 		if (isRegister($1.stored)) {    // if $1 is superVar we need to make copy od that value or we will lost it
 			Register reg = prepareRegister($1);
-			reg1 = getFreeRegister();
+			reg1 = getFreeRegister(false);
 			addOutput("COPY "+intToString(reg1.index)+" "+intToString(reg.index));
 		}
 		else reg1 = prepareRegister($1);
 
 		if (isRegister($3.stored)) {	  // if $3 is superVar we need to make copy od that value or we will lost it
 			Register reg = prepareRegister($3);
-			reg2 = getFreeRegister();
+			reg2 = getFreeRegister(false);
 			addOutput("COPY "+intToString(reg2.index)+" "+intToString(reg.index));
 		}
 		else reg2 = prepareRegister($3);
@@ -349,70 +355,74 @@ expression
 		addOutput("JUMP "+intToString(getK() - 6));
 		freeRegister(reg2.index, true);
 		freeRegister(reg1.index, true);
-		$$.index = -1;
 		$$.stored = reg3.index;
-		$$.value = -1;
-	//}
+	}
+	$$.index = -1;
+	$$.value = -1;
 }
 | value DIV value	{
 	resetAllRegisters(true);
-	Register reg1, reg2, reg3 = getFreeRegister(), reg4 = getFreeRegister(), reg5 = getFreeRegister();
-	if (isRegister($1.stored)) {    // if $1 is superVar we need to make copy od that value or we will lost it
-		Register reg = prepareRegister($1);
-		reg1 = getFreeRegister();
-		addOutput("COPY "+intToString(reg1.index)+" "+intToString(reg.index));
-	}
-	else reg1 = prepareRegister($1);
+	unsigned long long int quickResult = quickDivision($1, $3);
+	if (quickResult != -1) $$.stored = quickResult;
+	else {
+		Register reg1, reg2, reg3 = getFreeRegister(false), reg4 = getFreeRegister(false), reg5 = getFreeRegister(true);
+		if (isRegister($1.stored)) {    // if $1 is superVar we need to make copy od that value or we will lost it
+			Register reg = prepareRegister($1);
+			reg1 = getFreeRegister(false);
+			addOutput("COPY "+intToString(reg1.index)+" "+intToString(reg.index));
+		}
+		else reg1 = prepareRegister($1);
 
-	if (isRegister($3.stored)) {	  // if $3 is superVar we need to make copy od that value or we will lost it
-		Register reg = prepareRegister($3);
-		reg2 = getFreeRegister();
-		addOutput("COPY "+intToString(reg2.index)+" "+intToString(reg.index));
-	}
-	else reg2 = prepareRegister($3);
+		if (isRegister($3.stored)) {	  // if $3 is superVar we need to make copy od that value or we will lost it
+			Register reg = prepareRegister($3);
+			reg2 = getFreeRegister(false);
+			addOutput("COPY "+intToString(reg2.index)+" "+intToString(reg.index));
+		}
+		else reg2 = prepareRegister($3);
 
-	addOutput("JZERO "+intToString(reg1.index)+" "+intToString(getK() + 21));
-	addOutput("JZERO "+intToString(reg2.index)+" "+intToString(getK() + 20));
-	addOutput("COPY "+intToString(reg3.index)+" "+intToString(reg2.index));
-	addOutput("SHL "+intToString(reg3.index));
-	addOutput("COPY "+intToString(reg4.index)+" "+intToString(reg3.index));
-	addOutput("SUB "+intToString(reg4.index)+" "+intToString(reg1.index));
-	addOutput("JZERO "+intToString(reg4.index)+" "+intToString(getK() - 3));
-	addOutput("SHR "+intToString(reg3.index));
-	addOutput("COPY "+intToString(reg4.index)+" "+intToString(reg3.index));
-	addOutput("INC "+intToString(reg4.index));
-	addOutput("SUB "+intToString(reg4.index)+" "+intToString(reg2.index));
-	addOutput("JZERO "+intToString(reg4.index)+" "+intToString(getK() + 10));
-	addOutput("SHL "+intToString(reg5.index));
-	addOutput("COPY "+intToString(reg4.index)+" "+intToString(reg1.index));
-	addOutput("INC "+intToString(reg4.index));
-	addOutput("SUB "+intToString(reg4.index)+" "+intToString(reg3.index));
-	addOutput("JZERO "+intToString(reg4.index)+" "+intToString(getK() + 3));
-	addOutput("SUB "+intToString(reg1.index)+" "+intToString(reg3.index));
-	addOutput("INC "+intToString(reg5.index));
-	addOutput("SHR "+intToString(reg3.index));
-	addOutput("JUMP "+intToString(getK() - 12));
-	freeRegister(reg1.index, true);
-	freeRegister(reg2.index, true);
-	freeRegister(reg3.index, true);
-	freeRegister(reg4.index, true);
-	$$.stored = reg5.index;
+		addOutput("JZERO "+intToString(reg1.index)+" "+intToString(getK() + 21));
+		addOutput("JZERO "+intToString(reg2.index)+" "+intToString(getK() + 20));
+		addOutput("COPY "+intToString(reg3.index)+" "+intToString(reg2.index));
+		addOutput("SHL "+intToString(reg3.index));
+		addOutput("COPY "+intToString(reg4.index)+" "+intToString(reg3.index));
+		addOutput("SUB "+intToString(reg4.index)+" "+intToString(reg1.index));
+		addOutput("JZERO "+intToString(reg4.index)+" "+intToString(getK() - 3));
+		addOutput("SHR "+intToString(reg3.index));
+		addOutput("COPY "+intToString(reg4.index)+" "+intToString(reg3.index));
+		addOutput("INC "+intToString(reg4.index));
+		addOutput("SUB "+intToString(reg4.index)+" "+intToString(reg2.index));
+		addOutput("JZERO "+intToString(reg4.index)+" "+intToString(getK() + 10));
+		addOutput("SHL "+intToString(reg5.index));
+		addOutput("COPY "+intToString(reg4.index)+" "+intToString(reg1.index));
+		addOutput("INC "+intToString(reg4.index));
+		addOutput("SUB "+intToString(reg4.index)+" "+intToString(reg3.index));
+		addOutput("JZERO "+intToString(reg4.index)+" "+intToString(getK() + 3));
+		addOutput("SUB "+intToString(reg1.index)+" "+intToString(reg3.index));
+		addOutput("INC "+intToString(reg5.index));
+		addOutput("SHR "+intToString(reg3.index));
+		addOutput("JUMP "+intToString(getK() - 12));
+		freeRegister(reg1.index, true);
+		freeRegister(reg2.index, true);
+		freeRegister(reg3.index, true);
+		freeRegister(reg4.index, true);
+		$$.stored = reg5.index;
+	}
 	$$.index = -1;
 	$$.value = -1;
 }
 | value MODULO value	{
 	resetAllRegisters(true);
-	Register reg1, reg2, reg3 = getFreeRegister(), reg4 = getFreeRegister();
+	Register reg1, reg2, reg3 = getFreeRegister(false), reg4 = getFreeRegister(false);
 	if (isRegister($1.stored)) {    // if $1 is superVar we need to make copy od that value or we will lost it
 		Register reg = prepareRegister($1);
-		reg1 = getFreeRegister();
+		reg1 = getFreeRegister(false);
 		addOutput("COPY "+intToString(reg1.index)+" "+intToString(reg.index));
 	}
 	else reg1 = prepareRegister($1);
 
 	if (isRegister($3.stored)) {	  // if $3 is superVar we need to make copy od that value or we will lost it
 		Register reg = prepareRegister($3);
-		reg2 = getFreeRegister();
+		reg2 = getFreeRegister(false);
 		addOutput("COPY "+intToString(reg2.index)+" "+intToString(reg.index));
 	}
 	else reg2 = prepareRegister($3);
@@ -451,9 +461,9 @@ condition
 : value EQUAL value	{
 	resetAllRegisters(true);
 	st.push(getK());
-	Register reg1, reg2, reg3 = getFreeRegister();
+	Register reg1, reg2, reg3 = getFreeRegister(false);
 	if (isRegister($1.stored) && isRegister($3.stored)) {  // superVar = superVar
-		Register reg4 = getFreeRegister();
+		Register reg4 = getFreeRegister(false);
 		addOutput("COPY "+intToString(reg3.index)+" "+intToString($1.stored));
 		addOutput("COPY "+intToString(reg4.index)+" "+intToString($3.stored));
 		addOutput("SUB "+intToString(reg3.index)+" "+intToString($3.stored));
@@ -494,9 +504,9 @@ condition
 | value DIFFERENT value	{
 	resetAllRegisters(true);
 	st.push(getK());
-	Register reg1, reg2, reg3 = getFreeRegister();
+	Register reg1, reg2, reg3 = getFreeRegister(false);
 	if (isRegister($1.stored) && isRegister($3.stored)) {  // superVar != superVar
-		Register reg4 = getFreeRegister();
+		Register reg4 = getFreeRegister(false);
 		addOutput("COPY "+intToString(reg3.index)+" "+intToString($1.stored));
 		addOutput("COPY "+intToString(reg4.index)+" "+intToString($3.stored));
 		addOutput("SUB "+intToString(reg3.index)+" "+intToString($3.stored));
@@ -538,7 +548,7 @@ condition
 	st.push(getK());
 	Register reg1 = prepareRegister($1), reg2;
 	if (isRegister($3.stored)) {  // something < superVar
-		reg2 = getFreeRegister();
+		reg2 = getFreeRegister(false);
 		addOutput("COPY "+intToString(reg2.index)+" "+intToString($3.stored));
 	}
 	else reg2 = prepareRegister($3);
@@ -554,7 +564,7 @@ condition
 	st.push(getK());
 	Register reg1 = prepareRegister($3), reg2;
 	if (isRegister($1.stored)) {  // superVar > something
-		reg2 = getFreeRegister();
+		reg2 = getFreeRegister(false);
 		addOutput("COPY "+intToString(reg2.index)+" "+intToString($1.stored));
 	}
 	else reg2 = prepareRegister($1);
@@ -570,7 +580,7 @@ condition
 	st.push(getK());
 	Register reg1 = prepareRegister($1), reg2;
 	if (isRegister($3.stored)) {  // something < superVar
-		reg2 = getFreeRegister();
+		reg2 = getFreeRegister(false);
 		addOutput("COPY "+intToString(reg2.index)+" "+intToString($3.stored));
 	}
 	else reg2 = prepareRegister($3);
@@ -587,7 +597,7 @@ condition
 	st.push(getK());
 	Register reg1 = prepareRegister($3), reg2;
 	if (isRegister($1.stored)) {  // superVar > something
-		reg2 = getFreeRegister();
+		reg2 = getFreeRegister(false);
 		addOutput("COPY "+intToString(reg2.index)+" "+intToString($1.stored));
 	}
 	else reg2 = prepareRegister($1);

@@ -1,0 +1,46 @@
+DECLARE
+    app ppa sito(2048) __c tosi(1337)
+IN
+    [END]
+    app := 007;
+    PUT app;
+    PUT 8888;
+
+    IF 0 = 0 THEN
+        FOR dupa DOWN FROM 10 TO 8 DO
+            ppa := dupa;
+            FOR dupa FROM 1 TO 3 DO
+                app := dupa;    [dckalskmcdasmkl cemaxwk flewa]
+                PUT app;
+                FOR dupa FROM 111 TO 112 DO
+                    __c := dupa;
+                    PUT __c;
+                ENDFOR
+                app := dupa;
+                PUT app;
+            ENDFOR              [ mcksamcldasmcklsacm     ]
+            ppa := dupa;
+            FOR dupa DOWN FROM 8888 TO 8888 DO
+                PUT dupa;
+            ENDFOR
+            IF 0 >= 0 THEN PUT 42; ENDIF
+            ppa := dupa;
+
+            [IF 44 != 88 THEN ppa := 1000000000001; ENDIF]
+            PUT ppa;
+        ENDFOR
+    ENDIF
+
+    IF 582 >= __c THEN
+        app := ppa + __c;
+        sito (0) := 100010001;
+        tosi (0) := 512;
+    ENDIF
+    PUT app;
+    PUT sito(0);
+    PUT tosi(0);
+END
+
+[][][][][][][][]
+[][  KONIEC  ][]
+[][][][][][][][]
