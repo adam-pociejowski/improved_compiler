@@ -52,7 +52,6 @@ void deleteVariable(Variable v);
 void declareVariable(string id, unsigned long long int length);
 void storeVariable(ParserVar p1, ParserVar p2);
 bool isDeclared(string id, bool isArray);
-bool checkIfInitialized(ParserVar p1, ParserVar p2);
 
 /* Iterator functions */
 unsigned long long int addIterator(string id);
@@ -61,6 +60,7 @@ Register getIterator(unsigned long long int stored);
 bool isIterator(string id);
 void storeIterator(ParserVar p, Register reg);
 void deleteIterator(ParserVar p);
+void deleteIterator(ParserVar iterator, ParserVar counter);
 unsigned long long int addLoopCounter(Register reg);
 void saveLoopCounter(ParserVar p);
 

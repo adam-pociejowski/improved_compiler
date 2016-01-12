@@ -1,0 +1,19 @@
+[| 0 8 14 18 20 20 18 14 8]
+DECLARE
+taba(9) tabb(9) tabc(9) n m
+IN
+n := 8;
+m := n +1;
+tabc(0) := n;
+tabc(n) := 0;
+
+FOR i DOWN FROM tabc(0) TO tabc(n) DO
+  taba(i) := i;
+  tabb(i) := m -i;
+  tabc(i) := taba(i) * tabb(i);
+ENDFOR
+
+FOR i FROM 0 TO n DO
+  PUT tabc(i);
+ENDFOR
+END

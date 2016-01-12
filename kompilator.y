@@ -119,8 +119,7 @@ command
 	reg_to_reset.pop();
 }
 | FOR iterator FROM value TO value	{
-	Register reg1 = prepareRegister($4);
-	Register reg2;
+	Register reg1 = prepareRegister($4), reg2;
 	if (isRegister($6.stored)) {  			 //FOR i FROM value TO superVar
 		reg2 = getFreeRegister();
 		addOutput("COPY "+intToString(reg2.index)+" "+intToString($6.stored));
@@ -131,14 +130,12 @@ command
 	addOutput("SUB "+intToString(reg2.index)+" "+intToString(reg1.index));
 	storeIterator($2, reg1);
 	freeRegister(reg1.index, true);
-	unsigned long long int loopCounterStored = addLoopCounter(reg2);
-	freeRegister(reg2.index, true);
 	ParserVar p;
 	p.index = -1;
-	p.stored = loopCounterStored;
+	p.stored = addLoopCounter(reg2);
 	p.name = strdup("");
+	freeRegister(reg2.index, true);
 	st.push(getK());
-	printOutput();
 	reg1 = prepareRegister(p);
 	for_stack.push($2);
 	for_stack.push(p);
@@ -146,13 +143,13 @@ command
 	addOutput("JZERO "+intToString(reg1.index)+" ");
 	freeRegister(reg1.index, true);
 	reg_to_reset.push(reg1.index);
-
 }
 DO commands ENDFOR	{
-	saveLoopCounter(for_stack.top());
+	ParserVar counter = for_stack.top();
 	for_stack.pop();
 	ParserVar iterator = for_stack.top();
 	for_stack.pop();
+	saveLoopCounter(counter);
 	Register reg = prepareRegister(iterator);				//Increasing value of iterator
 	addOutput("INC "+intToString(reg.index));
 	storeIterator(iterator, reg);
@@ -160,47 +157,56 @@ DO commands ENDFOR	{
 	st.pop();
 	addOutput("JUMP "+intToString(st.top()));
 	st.pop();
-	deleteIterator(iterator);
 	freeRegister(reg_to_reset.top(), true);
 	reg_to_reset.pop();
+	deleteIterator(iterator, counter);
 }
 | FOR iterator DOWN FROM value TO value {
-	Register reg1 = prepareRegister($5);
-	storeIterator($2, reg1);
-	st.push(getK());
-	if (isRegister($2.stored)) {
-		reg1 = getFreeRegister();
-		addOutput("COPY "+intToString(reg1.index)+" "+intToString($2.stored));
+	Register reg1 = prepareRegister($7), reg2;
+	if (isRegister($5.stored)) {
+		reg2 = getFreeRegister();
+		addOutput("COPY "+intToString(reg2.index)+" "+intToString($5.stored));
 	}
-	else reg1 = prepareRegister($2);
+	else reg2 = prepareRegister($5);
+	Register reg3 = getFreeRegister();
 	setRegister(reg1, true);
-	Register reg2 = prepareRegister($7);
 	setRegister(reg2, true);
-	addOutput("INC "+intToString(reg1.index));
-	addOutput("SUB "+intToString(reg1.index)+" "+intToString(reg2.index));
+	setRegister(reg3, true);
+	addOutput("COPY "+intToString(reg3.index)+" "+intToString(reg2.index));
+	storeIterator($2, reg3);
+	addOutput("INC "+intToString(reg2.index));
+	addOutput("SUB "+intToString(reg2.index)+" "+intToString(reg1.index));
+	freeRegister(reg1.index, true);
+	ParserVar p;
+	p.index = -1;
+	p.stored = addLoopCounter(reg2);
+	p.name = strdup("");
 	freeRegister(reg2.index, true);
+	st.push(getK());
+	reg1 = prepareRegister(p);
 	for_stack.push($2);
+	for_stack.push(p);
 	st.push(getK());
 	addOutput("JZERO "+intToString(reg1.index)+" ");
 	freeRegister(reg1.index, true);
 	reg_to_reset.push(reg1.index);
 }
 DO commands ENDFOR	{
-	ParserVar p1 = for_stack.top();
+	ParserVar counter = for_stack.top();
 	for_stack.pop();
-	Register reg = prepareRegister(p1);
-	unsigned long long int index = getK();
-	addOutput("JZERO "+intToString(reg.index)+" ");
+	ParserVar iterator = for_stack.top();
+	for_stack.pop();
+	saveLoopCounter(counter);
+	Register reg = prepareRegister(iterator);
 	addOutput("DEC "+intToString(reg.index));
-	storeIterator(p1, reg);
-	setOutput(st.top(), intToString(getK()+1));
+	storeIterator(iterator, reg);
+	setOutput(st.top(), intToString(getK() + 1));
 	st.pop();
 	addOutput("JUMP "+intToString(st.top()));
 	st.pop();
-	setOutput(index, intToString(getK()));
-	deleteIterator(p1);
 	freeRegister(reg_to_reset.top(), true);
 	reg_to_reset.pop();
+	deleteIterator(iterator, counter);
 }
 | GET identifier SEMICOLON	{
 	ParserVar p;

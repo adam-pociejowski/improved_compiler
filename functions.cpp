@@ -19,23 +19,34 @@ int memoryStart = 10;   								 //10 is first adress of memory (0)
 void saveLoopCounter(ParserVar p) {
 	print(intToString(p.stored));
 	printVariables();
-	Register reg = getFreeRegister();
-	Register reg2 = getFreeRegister();
-	setValueInRegister(p.stored - 10, reg.index);
-	addOutput("LOAD "+intToString(reg2.index)+" "+intToString(reg.index));
-	addOutput("DEC "+intToString(reg2.index));
-	addOutput("STORE "+intToString(reg2.index)+" "+intToString(reg.index));
-	freeRegister(reg.index, true);
-	freeRegister(reg2.index, true);
+	if (isRegister(p.stored))	addOutput("DEC "+intToString(p.stored));
+	else {
+		Register reg = getFreeRegister();
+		Register reg2 = getFreeRegister();
+		setValueInRegister(p.stored - 10, reg.index);
+		addOutput("LOAD "+intToString(reg2.index)+" "+intToString(reg.index));
+		addOutput("DEC "+intToString(reg2.index));
+		addOutput("STORE "+intToString(reg2.index)+" "+intToString(reg.index));
+		freeRegister(reg.index, true);
+		freeRegister(reg2.index, true);
+	}
 }
 
 
 unsigned long long int addLoopCounter(Register reg) {
-	Register reg2 = getFreeRegister();
-	setValueInRegister(memoryIndex - 10, reg2.index);
-	addOutput("STORE "+intToString(reg.index)+" "+intToString(reg2.index));
-	freeRegister(reg2.index, true);
-	return memoryIndex++;
+	if (superIteratorRegistersAmount > 0) {
+		reg.iterator = true;
+		reg.id = "loopCounter";
+		setRegister(reg, true);
+		return reg.index;
+	}
+	else {
+		Register reg2 = getFreeRegister();
+		setValueInRegister(memoryIndex - 10, reg2.index);
+		addOutput("STORE "+intToString(reg.index)+" "+intToString(reg2.index));
+		freeRegister(reg2.index, true);
+		return memoryIndex++;
+	}
 }
 
 
@@ -95,12 +106,6 @@ Register getIterator(unsigned long long int stored) {
 	setValueInRegister(stored - 10, reg.index);
 	addOutput("LOAD "+intToString(reg_2.index)+" "+intToString(reg.index));
 	return reg_2;
-}
-
-
-bool checkIfInitialized(ParserVar p1, ParserVar p2) {
-	if ((p1.value == -1 && string(p1.name).compare("")) || (p2.value == -1 && string(p2.name).compare(""))) return true;
-	else return false;
 }
 
 
@@ -266,6 +271,23 @@ void deleteIterator(ParserVar p) {
 	v.id = p.name;
 	v.iterator = true;
 	deleteVariable(v);
+}
+
+
+void deleteIterator(ParserVar iterator, ParserVar counter) {
+	if (isRegister(iterator.stored)) deleteSuperVarFromRegister(getRegisterByIndex(iterator.stored));
+	Variable v;
+	v.id = iterator.name;
+	v.iterator = true;
+	deleteVariable(v);
+	if (isRegister(counter.stored)) {
+		registers[counter.stored].iterator = false;
+		registers[counter.stored].isFree = true;
+		registers[counter.stored].positive = false;
+		registers[counter.stored].id = "";
+		superIteratorRegistersAmount++;
+		printVariables();
+	}
 }
 
 
