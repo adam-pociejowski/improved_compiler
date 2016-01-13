@@ -80,6 +80,7 @@ commands
 
 
 command
+/*
 : identifier ASSIGN expression SEMICOLON {
 	actual = $1;
 	if (!isIterator(actual.name)) {
@@ -102,7 +103,31 @@ command
 		} else yyerror("Result of expression isn't stored in register");
 	} else yyerror("Trying change iterator value");
 }
-
+*/
+: identifier ASSIGN {
+	actual = $1;
+}
+expression SEMICOLON {
+	if (!isIterator(actual.name)) {
+		if (isRegister($4.stored) || $4.value != -1) {
+			Variable v = getVariable(string(actual.name));
+			if ($4.value == -1) storeVariable(actual, $4);
+			else if (isRegister(actual.stored)) {			//initialize superVar with num
+				addOutput("RESET "+intToString(actual.stored));
+				setValueInRegister($4.value, actual.stored);
+			}
+			else {
+				ParserVar p = $4;
+				p.index = -1;
+				Register reg = prepareRegister($4);
+				p.stored = reg.index;
+				storeVariable(actual, p);
+			}
+			v.isInitialized = true;
+			setVariable(v);
+		} else yyerror("Result of expression isn't stored in register");
+	} else yyerror("Trying change iterator value");
+}
 | IF condition THEN commands ENDIF	{
 	setOutput(st.top(), intToString(getK())); st.pop(); st.pop();
 	freeRegister(reg_to_reset.top(), true);
@@ -256,35 +281,90 @@ expression
 |	value ADD value {
 	resetAllRegisters(true);
 	if (isRegister($1.stored) || isRegister($3.stored)) {               //superVar optimalization
-		Register reg, reg2;
-		int changedIndex = -1;
+		int optimalization = 0;  									 //0 - nothing, 1 - a := a + somthing, 2 - a := something + a
+		ParserVar leftSite = actual;
+		if (isRegister(leftSite.stored)) {
+			if (leftSite.stored == $1.stored) optimalization = 1;  			 	  //a := a + something
+			else if (leftSite.stored == $3.stored) optimalization = 2; 	  	//a := something + a
+			else optimalization = 3;																			  //a := b + something
+		}
 
 		if (isRegister($1.stored) && isRegister($3.stored)) {   					//superVar + superVar
-			reg = getFreeRegister(true);
+			Register reg = getFreeRegister(true);
 			addOutput("COPY "+intToString(reg.index)+" "+intToString($3.stored));
-			reg2 = prepareRegister($1);
-		}
-		else if (isRegister($1.stored) && !isRegister($3.stored)) {       //superVar + notSuperVar
-			reg2 = prepareRegister($3);
-			changedIndex = $1.stored;
-		}
-		else if (!isRegister($1.stored) && isRegister($3.stored)) {  			//notSuperVar + superVar
-			reg2 = prepareRegister($1);
-			changedIndex = $3.stored;
-		}
-		else yyerror("superVar problem in addition");                     //This shouldn't happen
-
-		if (changedIndex != -1) {
-			addOutput("ADD "+intToString(reg2.index)+" "+intToString(changedIndex));
-			$$.stored = reg2.index;
-		}
-		else {
+			Register reg2 = prepareRegister($1);
 			addOutput("ADD "+intToString(reg.index)+" "+intToString(reg2.index));
 			$$.stored = reg.index;
 			freeRegister(reg2.index, true);
 		}
+		else if (isRegister($1.stored)) {       		//superVar + notSuperVar
+			if ($3.stored == -1 && $3.value < 8 && optimalization != 0) {   //$3 = NUM
+				if (optimalization == 1) {							//a := a + 1
+					for (int i = 0; i < $3.value; i++) addOutput("INC "+intToString($1.stored));
+					$$.stored = leftSite.stored;
+				}
+				else if (optimalization == 3) { 				//a := b + 1;
+					addOutput("COPY "+intToString(leftSite.stored)+" "+intToString($1.stored));
+					for (int i = 0; i < $3.value; i++) addOutput("INC "+intToString(leftSite.stored));
+					$$.stored = leftSite.stored;
+				}
+			}
+			else if (optimalization != 0) {
+				if (optimalization == 1) {    					//a := a + something
+					Register reg = prepareRegister($3);
+					addOutput("ADD "+intToString(leftSite.stored)+" "+intToString(reg.index));
+					freeRegister(reg.index, true);
+					$$.stored = leftSite.stored;
+				}
+				else if (optimalization == 3) {					//a := b + something
+					addOutput("COPY "+intToString(leftSite.stored)+" "+intToString($1.stored));
+					Register reg = prepareRegister($3);
+					addOutput("ADD "+intToString(leftSite.stored)+" "+intToString(reg.index));
+					freeRegister(reg.index, true);
+					$$.stored = leftSite.stored;
+				}
+			}
+			else if (optimalization == 0) { 					//a := b + 1  //a is stored in memory
+				Register reg = prepareRegister($3);
+				addOutput("ADD "+intToString(reg.index)+" "+intToString($1.stored));
+				$$.stored = reg.index;
+			}	else yyerror("$1 superVar problem in addition");
+		}
+		else if (isRegister($3.stored)) {  					//notSuperVar + superVar
+			if ($1.stored == -1 && $1.value < 8 && optimalization != 0) {   //$1 = NUM
+				if (optimalization == 2) {							//a := 1 + a
+					for (int i = 0; i < $1.value; i++) addOutput("INC "+intToString(leftSite.stored));
+					$$.stored = leftSite.stored;
+				}
+				else if (optimalization == 3) { 				//a := 1 + b;
+					addOutput("COPY "+intToString(leftSite.stored)+" "+intToString($3.stored));
+					for (int i = 0; i < $1.value; i++) addOutput("INC "+intToString(leftSite.stored));
+					$$.stored = leftSite.stored;
+				}
+			}
+			else if (optimalization != 0) {
+				if (optimalization == 2) {    					//a := something + a
+					Register reg = prepareRegister($1);
+					addOutput("ADD "+intToString($3.stored)+" "+intToString(reg.index));
+					freeRegister(reg.index, true);
+					$$.stored = leftSite.stored;
+				}
+				else if (optimalization == 3) {					//a := something + b
+					addOutput("COPY "+intToString(leftSite.stored)+" "+intToString($3.stored));
+					Register reg = prepareRegister($1);
+					addOutput("ADD "+intToString(leftSite.stored)+" "+intToString(reg.index));
+					freeRegister(reg.index, true);
+					$$.stored = leftSite.stored;
+				}
+			}
+			else if (optimalization == 0) { 					//a := something + b  //a is stored in memory
+				Register reg = prepareRegister($1);
+				addOutput("ADD "+intToString(reg.index)+" "+intToString($3.stored));
+				$$.stored = reg.index;
+			}	else yyerror("$3 superVar problem in addition");
+		}	else yyerror("superVar problem in addition");
 	}
-	else {
+	else {																			   //Other a := 1 + 1 etc..
 		int quickResult = quickAddition($1, $3);
 		if (quickResult != -1) $$.stored = quickResult;
 		else {
@@ -301,15 +381,64 @@ expression
 | value MINUS value	{
 	resetAllRegisters(true);
 	if (isRegister($1.stored) || isRegister($3.stored)) {  												//superVar optimalization
-		Register reg, reg2 = prepareRegister($3);
-		if (isRegister($1.stored)) {																								//superVar - something
-			reg = getFreeRegister(true);
-			addOutput("COPY "+intToString(reg.index)+" "+intToString($1.stored));
+		int optimalization = 0;  									 //0 - nothing, 1 - a := a + somthing, 2 - a := something - a
+		ParserVar leftSite = actual;
+		if (isRegister(leftSite.stored)) {
+			if (leftSite.stored == $1.stored) optimalization = 1;  			 	  //a := a - something
+			else if (leftSite.stored == $3.stored) optimalization = 2; 	  	//a := something - a
+			else optimalization = 3;																			  //a := b - something
 		}
-		else reg = prepareRegister($1);																							//something - superVar
-		addOutput("SUB "+intToString(reg.index)+" "+intToString(reg2.index));
-		freeRegister(reg2.index, true);
-		$$.stored = reg.index;
+
+		if ($1.stored == $3.stored && optimalization == 1) {							//a := a - a
+			addOutput("RESET "+intToString($1.stored));
+			$$.stored = $1.stored;
+		}
+		else if ($1.stored == $3.stored && optimalization == 3) {					//b := a - a
+			addOutput("RESET "+intToString(leftSite.stored));
+			$$.stored = leftSite.stored;
+		}
+		else if (isRegister($1.stored)) {																								//superVar - something
+			if ($3.stored == -1 && $3.value < 8 && optimalization != 0) {
+				if (optimalization == 1) {							//a := a - 1
+					for (int i = 0; i < $3.value; i++) addOutput("DEC "+intToString($1.stored));
+					$$.stored = leftSite.stored;
+				}
+				else if (optimalization == 3) { 				//a := b - 1;
+					addOutput("COPY "+intToString(leftSite.stored)+" "+intToString($1.stored));
+					for (int i = 0; i < $3.value; i++) addOutput("DEC "+intToString(leftSite.stored));
+					$$.stored = leftSite.stored;
+				}
+			}
+			else if (optimalization != 0) {
+				if (optimalization == 1) {    					//a := a - something
+					Register reg = prepareRegister($3);
+					addOutput("SUB "+intToString(leftSite.stored)+" "+intToString(reg.index));
+					freeRegister(reg.index, true);
+					$$.stored = leftSite.stored;
+				}
+				else if (optimalization == 3) {					//a := b - something
+					addOutput("COPY "+intToString(leftSite.stored)+" "+intToString($1.stored));
+					Register reg = prepareRegister($3);
+					addOutput("SUB "+intToString(leftSite.stored)+" "+intToString(reg.index));
+					freeRegister(reg.index, true);
+					$$.stored = leftSite.stored;
+				}
+			}
+			else if (optimalization == 0) {						//a := b - something //a in memory
+				Register reg = prepareRegister($3);
+				Register reg2 = getFreeRegister(false);
+				addOutput("COPY "+intToString(reg2.index)+" "+intToString($1.stored));
+				addOutput("SUB "+intToString(reg2.index)+" "+intToString(reg.index));
+				freeRegister(reg.index, true);
+				$$.stored = reg2.index;
+			}	else yyerror("$1 superVar problem in subtraction");
+		}
+		else {																		//a := something - a;
+			Register reg = prepareRegister($1);
+			Register reg2 = prepareRegister($3);
+			addOutput("SUB "+intToString(reg.index)+" "+intToString(reg2.index));
+			$$.stored = reg.index;
+		}
 	}
 	else {
 		int quickResult = quickSubtraction($1, $3);

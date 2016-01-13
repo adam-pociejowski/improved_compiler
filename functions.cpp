@@ -144,7 +144,9 @@ void storeVariable(ParserVar p1, ParserVar p2) {
 			freeRegister(reg.index, false);
 		}
 	}
-	else if (v.superVar) addOutput("COPY "+intToString(v.stored)+" "+intToString(p2.stored)); // superVar = register
+	else if (v.superVar) {
+		if (p1.stored != p2.stored) addOutput("COPY "+intToString(v.stored)+" "+intToString(p2.stored)); // superVar = register
+	}
 	else {
 		addOutput("STORE "+intToString(p2.stored)+" "+intToString(p1.stored));
 		registers[p1.stored].positive = true;
