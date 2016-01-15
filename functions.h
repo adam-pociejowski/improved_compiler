@@ -16,11 +16,10 @@ using namespace std;
 struct Register {
 	int index;
 	string id;
-	bool initialized = false;
 	bool isFree = true;
-	bool positive = false;
 	bool iterator = false;
 	bool superVar = false;
+	bool toReset = true;
 };
 
 struct Variable {
@@ -89,8 +88,8 @@ void printOutput();
 void organizeVariables();
 unsigned long long int quickAddition(ParserVar ps1, ParserVar ps2);
 unsigned long long int quickSubtraction(ParserVar ps1, ParserVar ps2);
-unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2);
-unsigned long long int quickDivision(ParserVar ps1, ParserVar ps2);
+unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2, int optimalization);
+unsigned long long int quickDivision(ParserVar ps1, ParserVar ps2, int optimalization);
 unsigned long long int quickOperationsPrinter(string operation, int number, ParserVar ps1, ParserVar ps2);
 int getLog(unsigned long long int value);
 Register superVarOperations(ParserVar p1, ParserVar p2);

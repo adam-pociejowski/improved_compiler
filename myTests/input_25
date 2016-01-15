@@ -1,0 +1,27 @@
+DECLARE
+n m reszta potega dzielnik
+IN
+  n := 12345678901;
+  dzielnik := 2;
+  m := dzielnik * dzielnik ;
+  WHILE n >= m DO
+   potega := 0;
+   reszta := n % dzielnik ;
+   WHILE reszta = 0 DO
+     n := n / dzielnik ;
+     potega := potega + 1;
+     reszta := n % dzielnik ;
+   ENDWHILE
+   IF potega > 0 THEN
+     PUT dzielnik ;
+     PUT potega ;
+   ELSE
+     dzielnik := dzielnik + 1;
+     m := dzielnik * dzielnik ;
+   ENDIF
+ ENDWHILE
+ IF n != 1 THEN
+   PUT n;
+   PUT 1;
+ ENDIF
+END

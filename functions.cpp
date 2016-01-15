@@ -149,7 +149,7 @@ void storeVariable(ParserVar p1, ParserVar p2) {
 	}
 	else {
 		addOutput("STORE "+intToString(p2.stored)+" "+intToString(p1.stored));
-		registers[p1.stored].positive = true;
+		registers[p1.stored].toReset = true;
 		freeRegister(p1.stored, false);
 	}
 	freeRegister(p2.stored, true);
@@ -198,7 +198,7 @@ Register prepareRegister(ParserVar pv) {
 		addOutput("LOAD "+intToString(reg.index)+" "+intToString(reg_2.index));
 		freeRegister(reg_2.index, false);
 	}
-	reg.positive = true;
+	reg.toReset = true;
 	return reg;
 }
 
@@ -206,7 +206,7 @@ Register prepareRegister(ParserVar pv) {
 int setValueInRegister(unsigned long long int value, unsigned long long int reg_index) {
 	vector<string> commands;
 	unsigned long long int a = value;
-	if (value > 0) registers[reg_index].positive = true;
+	if (value > 0) registers[reg_index].toReset = true;
 	while (a > 0) {
 		if (a < value) commands.push_back("SHL "+intToString(reg_index));
 		if (a % 2 == 1) commands.push_back("INC "+intToString(reg_index));
@@ -214,38 +214,6 @@ int setValueInRegister(unsigned long long int value, unsigned long long int reg_
 	}
 	for (int i = commands.size()-1; i >= 0; i--) addOutput(commands[i]);
 	return reg_index;
-}
-
-
-void resetAllRegisters(bool reset) {
-	if (reset) {
-		for (int i = 0; i < 10; i++) freeRegister(i, false);
-	}
-	else {
-		for (int i = 0; i < 10; i++) {
-			if (!registers[i].superVar) {
-				if (registers[i].positive == true && !registers[i].iterator) {
-					addOutput("RESET "+intToString(i));
-				}
-			}
- 		}
- 	}
-}
-
-
-Register getFreeRegister(bool initReset) {
-	for (int i = 0; i < 10; i++) {
-		if (registers[i].isFree) {
-			if (!registers[i].initialized || registers[i].positive) {
-				if (initReset) addOutput("RESET "+intToString(i));
-				registers[i].initialized = true;
-				registers[i].positive = false;
-			}
-			registers[i].isFree = false;
-			return registers[i];
-		}
-	}
-	yyerror("All registers in use");
 }
 
 
@@ -281,7 +249,7 @@ void deleteIterator(ParserVar iterator, ParserVar counter) {
 	if (isRegister(counter.stored)) {
 		registers[counter.stored].iterator = false;
 		registers[counter.stored].isFree = true;
-		registers[counter.stored].positive = false;
+		registers[counter.stored].toReset = false;
 		registers[counter.stored].id = "";
 		superIteratorRegistersAmount++;
 		printVariables();
@@ -289,12 +257,15 @@ void deleteIterator(ParserVar iterator, ParserVar counter) {
 }
 
 
+void resetAllRegisters(bool reset) {
+	for (int i = 0; i < 10; i++) freeRegister(i, false);
+}
+
+
 void freeRegister(int reg_index, bool reset) {
 	if (!getRegisterByIndex(reg_index).superVar) {
 		if (!getRegisterByIndex(reg_index).iterator) {
-			if (reset) addOutput("RESET "+intToString(reg_index));
-			else if (registers[reg_index].positive == true) addOutput("RESET "+intToString(reg_index));
-			registers[reg_index].positive = false;
+			if (reset) registers[reg_index].toReset = true;
 			registers[reg_index].isFree = true;
 			registers[reg_index].id = "";
 		}
@@ -302,8 +273,23 @@ void freeRegister(int reg_index, bool reset) {
 }
 
 
+Register getFreeRegister(bool initReset) {
+	for (int i = 0; i < 10; i++) {
+		if (registers[i].isFree) {
+			if (registers[i].toReset) {
+				if (initReset) addOutput("RESET "+intToString(i));
+				registers[i].toReset = false;
+			}
+			registers[i].isFree = false;
+			return registers[i];
+		}
+	}
+	yyerror("All registers in use");
+}
+
+
 void setRegister(Register reg, bool positive) {
-	reg.positive = positive;
+	reg.toReset = positive;
 	registers[reg.index] = reg;
 }
 
@@ -375,13 +361,21 @@ unsigned long long int quickSubtraction(ParserVar ps1, ParserVar ps2) {
 }
 
 
-unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2) {
+unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2, int optimalization) {
 	if (ps1.value > 0 || ps2.value > 0) {
 		int ps1_value = -1, ps2_value = -1;
 		ps1_value = getLog(ps1.value);
 		ps2_value = getLog(ps2.value);
 
-		if (ps1_value != -1 && ps2_value != -1) {
+		if (optimalization == 1 && ps2_value >= 0) {  //a := a * 2;
+			for (int i = 0; i < ps2_value; i++) addOutput("SHL "+intToString(ps1.stored));
+			return ps1.stored;
+		}
+		else if (optimalization == 2 && ps1_value >= 0) {
+			for (int i = 0; i < ps1_value; i++) addOutput("SHL "+intToString(ps2.stored));
+			return ps2.stored;
+		}
+		else if (ps1_value != -1 && ps2_value != -1) {
 			if (ps1_value < ps2_value) return quickOperationsPrinter("SHL", ps1_value, ps2, ps1);
 			else return quickOperationsPrinter("SHL", ps2_value, ps1, ps2);
 			return -1;
@@ -393,18 +387,15 @@ unsigned long long int quickMultiplication(ParserVar ps1, ParserVar ps2) {
 }
 
 
-unsigned long long int quickDivision(ParserVar ps1, ParserVar ps2) {
+unsigned long long int quickDivision(ParserVar ps1, ParserVar ps2, int optimalization) {
 	if (ps1.value > 0 || ps2.value > 0) {
-		int ps1_value = -1, ps2_value = -1;
-		ps1_value = getLog(ps1.value);
+		int ps2_value = -1;
 		ps2_value = getLog(ps2.value);
 
-		if (ps1_value != -1 && ps2_value != -1) {
-			if (ps1_value < ps2_value) return quickOperationsPrinter("SHR", ps1_value, ps2, ps1);
-			else return quickOperationsPrinter("SHR", ps2_value, ps1, ps2);
-			return -1;
+		if (optimalization == 1 && ps2_value >= 0) {  //a := a / 2;
+			for (int i = 0; i < ps2_value; i++) addOutput("SHR "+intToString(ps1.stored));
+			return ps1.stored;
 		}
-		else if (ps1_value > -1) return quickOperationsPrinter("SHR", ps1_value, ps2, ps1);
 		else if (ps2_value > -1) return quickOperationsPrinter("SHR", ps2_value, ps1, ps2);
 	}
 	return -1;
@@ -476,8 +467,7 @@ void organizeVariables() {
 	if (superVarAmount > superVarRegistersAmount) superVarAmount = superVarRegistersAmount;
 	else if (superVarAmount < superVarRegistersAmount) superIteratorRegistersAmount += superVarRegistersAmount - superVarAmount;
 	for (int i = 0; i < superVarAmount; i++) {
-		registers[i].initialized = true;
-		registers[i].positive = false;
+		registers[i].toReset = false;
 		registers[i].isFree = false;
 		setSuperVarInRegister(registers[i], variables[i]);
 	}
@@ -622,7 +612,7 @@ void printVariables() {
 			cout<<"i: "<<j<<" | id: "<<i->id<<" | value: "<<i->value<<" | length: "<<i->length<<" | stored: "<<i->stored<<endl;
 		}
 		for (int i = 0; i < 10; i++) {
-			cout<<"i: "<<i<<" | isFree: "<<registers[i].isFree<<" | id: "<<registers[i].id<<" | positive: "<<registers[i].positive<<" | iterator: "<<registers[i].iterator<<" | superVar "<<registers[i].superVar<<endl;
+			cout<<"i: "<<i<<" | isFree: "<<registers[i].isFree<<" | id: "<<registers[i].id<<" | toReset: "<<registers[i].toReset<<" | iterator: "<<registers[i].iterator<<" | superVar "<<registers[i].superVar<<endl;
 		}
 	}
 }
